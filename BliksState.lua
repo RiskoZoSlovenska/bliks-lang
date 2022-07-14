@@ -5,6 +5,8 @@ local parse = require("parse")
 
 local FunctionResult = enums.FunctionResult
 
+-- TODO: Rewrite this
+
 
 
 local function formatLineAndFunc(lineNum, funcName, msg, ...)

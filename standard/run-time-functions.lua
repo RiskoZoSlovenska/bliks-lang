@@ -1,5 +1,5 @@
-local enums = require("enums")
-local utils = require("func-utils")
+local enums = require("../enums")
+local utils = require("../func-utils")
 
 local FunctionResult = enums.FunctionResult
 local GOTO, WRITE = FunctionResult.GOTO, FunctionResult.WRITE
@@ -157,7 +157,6 @@ return {
 	writef  = {"s a+", "", function(state, fmt, ...) return protectedFormat(state, WRITE, fmt, ...) end},
 
 	-- Math
-	tonumber = {"p a", "n", function(state, out, value)    return out, tonumber(value) end},
 	add    = {"p n n", "n", function(state, out, in1, in2) return out, in1 + in2 end},
 	sub    = {"p n n", "n", function(state, out, in1, in2) return out, in1 - in2 end},
 	mul    = {"p n n", "n", function(state, out, in1, in2) return out, in1 * in2 end},

@@ -1,5 +1,7 @@
 # Blicks
 
+TODO: Update this
+
 ## Welcome
 Welcome to the Bliks manual, the completely guide to the Bliks programming language. Bliks is a tiny language created to be used within a game, written in Lua. As such, it compiles to Lua values (tables, etc) and is then run by a Lua script. It's based off of YewScript, a somewhat similar (but unfortunately not very good) programming language for a very similar game.
 
