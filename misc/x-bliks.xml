@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+	<mime-type type="text/x-bliks">
+		<comment>Bliks script</comment>
+		<glob pattern="*.blik"/>
+		<icon name="x-bliks"/>
+	</mime-type>
+</mime-info>
