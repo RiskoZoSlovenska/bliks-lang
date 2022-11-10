@@ -1,0 +1,48 @@
+define a 1
+define myVar_3 2
+define add "hello"
+define define nil
+
+
+> myLabel
+	set a 2
+	set a +2
+	set a -2
+	set a -2.32
+	set a +42.12
+
+	set a "hello"
+	set a "&a&q&s&n"
+	set a "hi
+	set a heeeeeei"
+	# comment
+
+	set a nil
+	set a nil # comment
+
+	set a <
+	set a @1
+	set a @@1
+	set a @a
+	set a @@a
+	set a @"e"
+	set a @"2"
+	set a @
+	set a @3t
+	set a @<
+	set 1
+	set 1 @add
+	set add 2
+	add 1 3 2
+	add 3 add 2
+	
+
+	define start 1
+	define end 2
+	define out 3
+
+	set 1 start
+	set out nil
+	> writeLoop
+		append out < @@1
+	repeat writeLoop 1 < @end 1

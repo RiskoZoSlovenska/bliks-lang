@@ -1,0 +1,19 @@
+define x 1
+define y 2
+define x2 3
+define y2 4
+define output 6
+define fmt "Coordinate: (%d, %d)"
+
+begin
+readnum x2
+readnum y2
+
+set x 1
+> xloop
+	set y 1
+	> yloop
+		format output fmt @x @y
+		write @output
+	repeat y < @y2 1 yloop
+repeat x < @x2 +1 xloop

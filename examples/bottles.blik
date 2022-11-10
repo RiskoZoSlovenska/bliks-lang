@@ -1,0 +1,17 @@
+define bottles 1
+define output 2
+define fmt1 "%d bottles of beer on the wall. %d bottles of beer. Take one down, pass it around, "
+define fmt2 "%s%d bottles of beer on the wall."
+
+
+begin
+read bottles
+tonumber bottles <
+
+> loop
+	format output fmt1 @bottles @bottles
+	sub bottles < 1
+	format output fmt2 < @bottles
+	add bottles < 1
+	write @output
+repeat bottles < 1 -1 loop

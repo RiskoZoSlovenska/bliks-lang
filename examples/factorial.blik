@@ -1,0 +1,14 @@
+define input 1
+define output 2
+define counter 3
+
+begin
+readnum input
+set output 1
+set counter 1
+
+> loop
+	mul output < @counter
+repeat counter < @input 1 loop
+
+write @output

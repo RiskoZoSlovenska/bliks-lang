@@ -1,0 +1,26 @@
+define input 4
+define output 5
+define counter 6
+
+
+> factorial
+	set output 1
+	set counter 2
+
+	> loop
+		mul output < @counter
+	repeat counter < @input +1 loop
+return
+
+
+begin
+> main
+	readnum input
+	notequal 1 @input nil
+	if @1
+	> then
+		call factorial
+		write @output
+	> else
+
+goto main
