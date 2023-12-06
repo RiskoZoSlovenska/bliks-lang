@@ -106,6 +106,10 @@ return {
 	["throw"] = Function.new("s", false, function(out, state, num, message)
 		return message
 	end),
+	["assert"] = Function.new("s s?", false, function(out, state, num, value, message)
+		if value ~= "" then return end
+		return message or "value was false"
+	end),
 	["==="] = Function.new("", false, function(out, state, num)
 		return "boundary was crossed"
 	end),
