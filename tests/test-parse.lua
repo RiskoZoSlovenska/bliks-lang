@@ -163,13 +163,13 @@ describe("the parser", function()
 			{ Token(TokenType.literal, 123, nil, 1), Token(TokenType.literal, 456, nil, 5) },
 			{ Token(TokenType.name, "abcd", nil, 9) },
 			{ Token(TokenType.literal, "hi there", nil, 14) },
-		}, parse('123 456;abcd;"hi there"# epic'))
+		}, parse('123 456;abcd:"hi there"# epic'))
 
 		assert.are.same({
 			{ Token(TokenType.literal, 123, nil, 1), Token(TokenType.literal, 456, nil, 5)  },
 			{ Token(TokenType.name, "abcd", nil, 10) },
 			{ Token(TokenType.literal, "hi there", nil, 17) },
-		}, parse('123\t456; abcd ; "hi there";;;# epic'))
+		}, parse('123\t456; abcd ; "hi there";:;# epic'))
 	end)
 
 	it("should handle failures with multiple instructions on the same line", function()
