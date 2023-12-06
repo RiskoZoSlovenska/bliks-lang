@@ -87,7 +87,7 @@ end
 
 return {
 	-- Values
-	["let"] = Function.new("i s", true, function(state, num, name, value)
+	["let"] = Function.new("N s", true, function(state, num, name, value)
 		state.macros[name] = value
 	end),
 	["set"] = Function.basic("p s", function(value) return value end),
@@ -111,14 +111,14 @@ return {
 	end),
 
 	-- Labels
-	[">"] = Function.new("i", true, putLabel),
+	[">"] = Function.new("N", true, putLabel),
 	["else"] = Function.new("s?", true, putConstantLabel("_else")),
 	["repeat"] = Function.new("s?", true, putConstantLabel("_repeat")),
 	["end"] = Function.new("s?", true, putConstantLabel("_end")),
 
 	-- Jumping
-	["goto"] = Function.new("i", false, goTo),
-	["jump"] = Function.new("i", false, jumpToNextLabel),
+	["goto"] = Function.new("N", false, goTo),
+	["jump"] = Function.new("N", false, jumpToNextLabel),
 	["if"] = Function.new("s s?", false, function(out, state, cur, value, suffix)
 		if value ~= "" then return nil end
 		return jumpToNextLabel(out, state, cur, "_else", suffix)
@@ -150,7 +150,7 @@ return {
 	["continue"] = Function.new("s?", false, function(out, state, cur, suffix)
 		return jumpToPreviousLabel(out, state, cur, "_repeat", suffix)
 	end),
-	["call"] = Function.new("i", false, function(out, state, cur, label)
+	["call"] = Function.new("N", false, function(out, state, cur, label)
 		if state.std_return then
 			return "already in a function!"
 		end

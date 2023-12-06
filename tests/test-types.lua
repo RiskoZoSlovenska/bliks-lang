@@ -22,12 +22,12 @@ describe("the types module", function()
 	end)
 
 	it("should parse plain param strings", function()
-		assert.are.same(Params(4, 4, T.pointer, T.number, T.string, T.name), types.parseParams("p n s i"))
+		assert.are.same(Params(4, 4, T.pointer, T.number, T.string, T.name), types.parseParams("p n s N"))
 		assert.are.same(Params(3, 3, T.pointer, T.pointer, T.pointer), types.parseParams("p p p"))
 	end)
 
 	it("should parse param strings with optional params", function()
-		assert.are.same(Params(2, 4, T.pointer, T.number, T.string, T.name), types.parseParams("p n s? i?"))
+		assert.are.same(Params(2, 4, T.pointer, T.number, T.string, T.name), types.parseParams("p n s? N?"))
 		assert.are.same(Params(0, 1, T.string), types.parseParams("s?"))
 	end)
 

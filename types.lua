@@ -12,7 +12,7 @@ local ALIASES = {
 	n = ValueType.number,
 	s = ValueType.string,
 
-	i = ValueType.name,
+	N = ValueType.name,
 }
 
 local HIERARCHY = {
