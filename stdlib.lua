@@ -10,7 +10,7 @@ local function putLabel(state, num, label, suffix)
 end
 
 local function putConstantLabel(label)
-	return function(out, state, cur, suffix)
+	return function(state, cur, suffix)
 		return putLabel(state, cur, label .. (suffix or ""))
 	end
 end
@@ -19,7 +19,9 @@ local function getLabelPositions(acc, label)
 	return acc.std_labels and acc.std_labels[label] or nil
 end
 
-local function jumpToNextLabel(out, state, cur, label)
+local function jumpToNextLabel(out, state, cur, label, suffix)
+	label = label .. (suffix or "")
+
 	local labels = getLabelPositions(state, label)
 	if labels then
 		for _, labelPos in ipairs(labels) do
@@ -33,7 +35,9 @@ local function jumpToNextLabel(out, state, cur, label)
 	return f("no succeeding label '%s'", label)
 end
 
-local function jumpToPreviousLabel(out, state, cur, label)
+local function jumpToPreviousLabel(out, state, cur, label, suffix)
+	label = label .. (suffix or "")
+
 	local labels = getLabelPositions(state, label)
 	if labels then
 		local i = 1
@@ -44,12 +48,14 @@ local function jumpToPreviousLabel(out, state, cur, label)
 		if i > 1 then
 			out.nextInstruction = labels[i - 1]
 		else
-			return f("no preceeding label '%s'", label)
+			return f("no preceding label '%s'", label)
 		end
 	end
 end
 
-local function goTo(out, state, cur, label)
+local function goTo(out, state, cur, label, suffix)
+	label = label .. (suffix or "")
+
 	local labels = getLabelPositions(state, label)
 	if not labels then
 		return f("no such label '%s'", label)
@@ -69,6 +75,15 @@ local function areEqual(a, b)
 	return (num ~= nil) and num == tonumber(b)
 end
 
+local function format(fmt, ...)
+	local args = {...}
+	local i = 0
+	return (fmt:gsub("%%", function(arg)
+		i = i + 1
+		return args[i] or "INVALID_ESCAPE"
+	end))
+end
+
 
 return {
 	-- Values
@@ -85,33 +100,55 @@ return {
 
 		state.begin = num
 	end),
-	["end"] = Function.new("", false, function(out, state, num)
+	["stop"] = Function.new("", false, function(out, state, num)
 		out.nextInstruction = -1
 	end),
 	["throw"] = Function.new("s", false, function(out, state, num, message)
 		return message
 	end),
 	["==="] = Function.new("", false, function(out, state, num)
-		return "leakage detected"
+		return "boundary was crossed"
 	end),
 
 	-- Labels
 	[">"] = Function.new("i", true, putLabel),
 	["else"] = Function.new("s?", true, putConstantLabel("_else")),
 	["repeat"] = Function.new("s?", true, putConstantLabel("_repeat")),
+	["end"] = Function.new("s?", true, putConstantLabel("_end")),
 
 	-- Jumping
 	["goto"] = Function.new("i", false, goTo),
 	["jump"] = Function.new("i", false, jumpToNextLabel),
 	["if"] = Function.new("s s?", false, function(out, state, cur, value, suffix)
-		if value == "" then
-			return jumpToNextLabel(out, state, cur, "_else" .. (suffix or ""))
+		if value ~= "" then return nil end
+		return jumpToNextLabel(out, state, cur, "_else", suffix)
+	end),
+	["ifnot"] = Function.new("s s?", false, function(out, state, cur, value, suffix)
+		if value == "" then return nil end
+		return jumpToNextLabel(out, state, cur, "_else", suffix)
+	end),
+	["while"] = Function.new("s s?", false, function(out, state, cur, value, suffix)
+		if value ~= "" then return nil end
+		return jumpToNextLabel(out, state, cur, "_end", suffix)
+	end),
+	["for"] = Function.new("p n n n? s?", false, function(out, state, cur, pointer, i, stop, step, suffix)
+		if step == 0 then
+			return "step cannot be nil"
+		end
+		step = step or 1
+
+		i = i + step
+		out.registers[pointer] = i
+
+		if (step > 0 and i > stop) or (step < 0 and i < stop) then
+			return jumpToNextLabel(out, state, cur, "_end", suffix)
 		end
 	end),
-	["while"] = Function.new("s s?", false, function(out, state, cur, value, target, suffix)
-		if not areEqual(value, target or "") then
-			return jumpToPreviousLabel(out, state, cur, "_repeat" .. (suffix or ""))
-		end
+	["break"] = Function.new("s?", false, function(out, state, cur, suffix)
+		return jumpToNextLabel(out, state, cur, "_end", suffix)
+	end),
+	["continue"] = Function.new("s?", false, function(out, state, cur, suffix)
+		return jumpToPreviousLabel(out, state, cur, "_repeat", suffix)
 	end),
 	["call"] = Function.new("i", false, function(out, state, cur, label)
 		if state.std_return then
@@ -126,15 +163,40 @@ return {
 			return "not in a function!"
 		end
 
-		out.nextInstruction = state.std_return
+		out.nextInstruction = state.std_return + 1
 		state.std_return = nil
 	end),
 
-	-- TODO:
-	-- read
-	-- readnum
-	-- write
-	-- writef
+	["read"] = Function.new("p", false, function(out, state, cur, pointer)
+		out.registers[pointer] = out.popBuffer()
+	end),
+	["readnum"] = Function.new("p", false, function(out, state, cur, pointer)
+		out.registers[pointer] = tonumber(out.popBuffer())
+	end),
+	["poll"] = Function.new("p", false, function(out, state, cur, pointer)
+		local data = out.popBuffer()
+		if not data then
+			out.output = -1
+			out.nextInstruction = cur
+		else
+			out.registers[pointer] = data
+		end
+	end),
+	["pollnum"] = Function.new("p", false, function(out, state, cur, pointer)
+		local data = tonumber(out.popBuffer())
+		if not data then
+			out.output = -1
+			out.nextInstruction = cur
+		else
+			out.registers[pointer] = data
+		end
+	end),
+	["write"] = Function.new("s", false, function(out, state, cur, data)
+		out.output = tostring(data)
+	end),
+	["writef"] = Function.new("s s*", false, function(out, state, cur, data, ...)
+		out.output = format(tostring(data), ...)
+	end),
 
 	-- Math functions
 	["add"] = Function.basic("p n n n*", function(first, ...)
@@ -154,7 +216,7 @@ return {
 	["sub"] = Function.basic("p n n", function(a, b) return a - b end),
 	["exp"] = Function.basic("p n n", function(a, b) return a ^ b end),
 	["div"] = Function.basic("p n n", function(a, b)
-		if b == 0 then return nil, "cannot divide by zero" end
+		if b == 0 then return nil, "attempt to divide by zero" end
 		return a / b
 	end),
 	["neg"] = Function.basic("p n", function(a) return -a end),
@@ -181,17 +243,18 @@ return {
 	["upper"]  = Function.basic("p s",     string.upper),
 	["lower"]  = Function.basic("p s",     string.lower),
 	["revstr"] = Function.basic("p s",     string.reverse),
-	["substr"] = Function.basic("p s n n", string.sub),
 	["len"]    = Function.basic("p s",     string.len),
 	["byte"]   = Function.basic("p s",     string.byte),
-	["char"]   = Function.basicProtected("p s",    string.char),
-	["match"]  = Function.basicProtected("p s s",  string.match),
-	["gsub"]   = Function.basicProtected("p s s",  string.gsub),
-	["format"] = Function.basicProtected("p s s*", string.format),
+
+	["substr"] = Function.basic("p s n n", string.sub),
+	["char"]   = Function.basic("p s",     string.char),
+	["match"]  = Function.basic("p s s",   string.match),
+	["gsub"]   = Function.basic("p s s",   string.gsub),
+	["format"] = Function.basic("p s s*",  string.format),
 
 	-- Logic
 	["not"] = Function.basicBool("p s", function(a) return a ~= "" end),
-	["and"] = Function.basic("p s s*", function(...)
+	["and"] = Function.basicBool("p s s*", function(...)
 		for i = 1, select("#", ...) do
 			if select(i, ...) == "" then
 				return false
@@ -199,7 +262,7 @@ return {
 		end
 		return true
 	end),
-	["or"]  = Function.basic("p s s*", function(...)
+	["or"]  = Function.basicBool("p s s*", function(...)
 		for i = 1, select("#", ...) do
 			if select(i, ...) ~= "" then
 				return true
@@ -209,7 +272,7 @@ return {
 	end),
 
 	-- Equality comparisons
-	["equal"] = Function.basic("p s s s*", function(...)
+	["equal"] = Function.basicBool("p s s s*", function(...)
 		for i = 1, select("#", ...) do
 			if areEqual((...), select(i, ...)) then
 				return true
@@ -218,17 +281,17 @@ return {
 
 		return false
 	end),
-	["notequal"] = Function.basic("p s s", function(a, b) return not areEqual(a, b) end),
+	["notequal"] = Function.basicBool("p s s", function(a, b) return not areEqual(a, b) end),
 
 	-- Number comparisons
-	["less"]      = Function.basicBool("p n n", function(a, b) return a <  b end),
-	["lessequal"] = Function.basicBool("p n n", function(a, b) return a <= b end),
-	["more"]      = Function.basicBool("p n n", function(a, b) return a >  b end),
-	["moreequal"] = Function.basicBool("p n n", function(a, b) return a >= b end),
+	["less"]      = Function.basic("p n n", function(a, b) return (a <  b) and a or "" end),
+	["lessequal"] = Function.basic("p n n", function(a, b) return (a <= b) and a or "" end),
+	["more"]      = Function.basic("p n n", function(a, b) return (a >  b) and a or "" end),
+	["moreequal"] = Function.basic("p n n", function(a, b) return (a >= b) and a or "" end),
 
 	-- String comparisons
-	["sless"]      = Function.basicBool("p s s", function(a, b) return tostring(a) <  tostring(b) end),
-	["slessequal"] = Function.basicBool("p s s", function(a, b) return tostring(a) <= tostring(b) end),
-	["smore"]      = Function.basicBool("p s s", function(a, b) return tostring(a) >  tostring(b) end),
-	["smoreequal"] = Function.basicBool("p s s", function(a, b) return tostring(a) >= tostring(b) end),
+	["sless"]      = Function.basicBool("p s s", function(a, b) return tostring(a) <  tostring(b)end),
+	["slessequal"] = Function.basicBool("p s s", function(a, b) return tostring(a) <= tostring(b)end),
+	["smore"]      = Function.basicBool("p s s", function(a, b) return tostring(a) >  tostring(b)end),
+	["smoreequal"] = Function.basicBool("p s s", function(a, b) return tostring(a) >= tostring(b)end),
 }

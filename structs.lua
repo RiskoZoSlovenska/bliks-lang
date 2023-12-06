@@ -6,7 +6,7 @@ local types = require("types") -- icky!
 ]]
 local function Error(message, pos, ...)
 	return {
-		message = string.format(message, ...),
+		message = select("#", ...) > 0 and string.format(message, ...) or message,
 		pos = assert(pos),
 	}
 end

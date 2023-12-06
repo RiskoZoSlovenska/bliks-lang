@@ -7,8 +7,7 @@
 	@param {{Token}} parsed
 	@param {string:Function} funcs
 
-	@return {Instruction}
-	@return integer The index of the first instruction to execute.
+	@return CompiledProgram
 ]]
 
 --[[= struct CompiledProgram
@@ -39,6 +38,8 @@ local DEFAULT_MACROS = {
 	e = math.exp(1),
 	inf = math.huge,
 	ninf = -math.huge,
+	["true"] = "true",
+	["false"] = "",
 }
 
 local function copy(tbl)
@@ -213,7 +214,7 @@ local function runStaticFunction(func, acc, num, args, funcPos)
 	return nil
 end
 
-return function(parsed, funcs)
+return function(parsed, stdlib)
 	local curNum = 1
 	local program = {
 		instructions = {},
@@ -229,7 +230,7 @@ return function(parsed, funcs)
 		end
 
 		-- Get function
-		local func = funcs[funcToken.value]
+		local func = stdlib[funcToken.value]
 		if not func then
 			return nil, Error("no such function '%s'", funcToken.pos, funcToken.value)
 		end

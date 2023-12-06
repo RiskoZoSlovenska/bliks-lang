@@ -12,8 +12,10 @@ end
 
 local function basic(params, func)
 	return new(params, false, function(out, state, num, pointer, ...)
-		local ret, err = func(...)
-		if err then
+		local ok, ret, err = pcall(func, ...)
+		if not ok then
+			return ret
+		elseif err then
 			return err
 		end
 
@@ -25,21 +27,9 @@ local function basicBool(params, func)
 	return basic(params, function(...) return func(...) and "true" or "" end)
 end
 
-local function basicProtected(params, func)
-	return new(params, false, function(out, state, num, pointer, ...)
-		local ok, ret = pcall(func, ...)
-		if not ok then
-			return ret
-		end
-
-		out.registers[pointer] = ret
-	end)
-end
-
 
 return {
 	new = new,
 	basic = basic,
-	basicProtected = basicProtected,
 	basicBool = basicBool,
 }
