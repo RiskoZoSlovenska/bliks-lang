@@ -38,12 +38,8 @@ local function is(subtype, supertype)
 	return HIERARCHY[subtype][supertype] ~= nil
 end
 
-local function typeof(token)
-	if token.type == TokenType.name then
-		return ValueType.name
-	end
-
-	local asNum = tonumber(token.value)
+local function typeof(value)
+	local asNum = tonumber(value)
 	if not asNum then
 		return ValueType.string
 	end
@@ -53,6 +49,14 @@ local function typeof(token)
 	end
 
 	return ValueType.pointer
+end
+
+local function typeoftoken(token)
+	if token.type == TokenType.name then
+		return ValueType.name
+	end
+
+	return typeof(token.value)
 end
 
 local function parseParams(paramsStr)
@@ -96,6 +100,7 @@ end
 return {
 	parseParams = parseParams,
 
-	typeof = typeof,
 	is = is,
+	typeof = typeof,
+	typeoftoken = typeoftoken,
 }

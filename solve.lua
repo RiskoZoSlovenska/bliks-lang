@@ -147,7 +147,7 @@ end
 
 local function typecheckRetrievals(tokens, func)
 	for i, token in tokensOfType(tokens, TokenType.retrieval) do
-		local actualType = types.typeof(token.value)
+		local actualType = types.typeoftoken(token.value)
 		if not types.is(actualType, ValueType.pointer) then
 			return Error(
 				"retrieval (for argument %d) expects a %s, but got '%s' (a %s)",
@@ -168,7 +168,7 @@ local function typecheckLiterals(tokens, func)
 	for i, token in tokensOfType(tokens, TokenType.literal) do
 		local paramType = getParamTypeAtIndex(func.params, i)
 
-		local actualType = types.typeof(token)
+		local actualType = types.typeoftoken(token)
 		if not types.is(actualType, paramType) then
 			return Error(
 				"function expects a %s for argument %d, but got '%s' (a %s)",
