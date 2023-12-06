@@ -1,5 +1,5 @@
-local LEADING_CONTEXT = 10
-local TRAILING_CONTEXT = 10
+local LEADING_CONTEXT = 15
+local TRAILING_CONTEXT = 15
 local TRUNCATE_STR = "..."
 local TRUNCATE_STR_WIDTH = 3
 
@@ -12,28 +12,42 @@ local function truncate(str, start)
 	str = tostring(str)
 	start = start or 1
 
-	local pos = 1
-	if start > LEADING_CONTEXT then
-		str = TRUNCATE_STR .. str:sub(start - LEADING_CONTEXT)
-		pos = LEADING_CONTEXT + TRUNCATE_STR_WIDTH
+	local left = math.max(start - LEADING_CONTEXT, 1)
+	local right = start + TRAILING_CONTEXT
+	local cleaned = str:sub(left, right)
+	local pos = math.min(start, LEADING_CONTEXT + 1)
+
+	if left > 1 then
+		cleaned = TRUNCATE_STR .. cleaned
+		pos = pos + TRUNCATE_STR_WIDTH
 	end
-	if #str > TRAILING_CONTEXT then
-		str = str:sub(1, TRAILING_CONTEXT) .. TRUNCATE_STR
+	if right < #str then
+		cleaned = cleaned .. TRUNCATE_STR
 	end
 
-	return str, pos
+	return cleaned, pos
 end
 
-local function formatError(err, source, filename)
-	local lineNum = select(2, source:sub(1, err.pos - 1):gsub("\n", "\n")) + 1
-	local colNum = source:sub(1, err.pos - 1):find("\n.-$")
+local function formatError(err, source, sourcename)
+	local lineNum = 1
+	local line, colNum
+	for left, body, right in string.gmatch(source, "()([^\n]*)()") do
+		if left <= err.pos and err.pos <= right then
+			local leadingWhite, cleaned = body:match("^%s*()(.-)%s*$")
+			line = cleaned
+			colNum = err.pos - left + 1 - leadingWhite + 1
+			break
+		end
 
-	local truncated, arrowPos = truncate(source, err.pos)
-	local arrow = (string.rep(" ", arrowPos) .. "^..."):sub(1, #truncated)
+		lineNum = lineNum + 1
+	end
+
+	local truncated, arrowPos = truncate(assert(line), colNum)
+	local arrow = truncated:sub(1, arrowPos - 1):gsub("%S", " ") .. "^"
 
 	return string.format(
-		"error in %s on line %d, col %d: %s\n\t%s\n\t%s",
-		filename, lineNum, colNum, err.msg,
+		"bliks: error: %s:%d: %s\n\t%s\n\t%s",
+		sourcename, lineNum, err.message,
 		truncated,
 		arrow
 	)
