@@ -23,6 +23,7 @@ local types = require("types")
 local enums = require("enums")
 local structs = require("structs")
 local utils = require("utils")
+local expandArgs = require("expand")
 
 local TokenType = enums.TokenType
 local ValueType = enums.ValueType
@@ -194,26 +195,6 @@ local function convertArguments(tokens, func)
 	end
 
 	return args
-end
-
-local function expandArgs(args)
-	local expanded = {}
-
-	for i, arg in ipairs(args) do
-		if arg.type == ArgumentType.value then
-			expanded[i] = arg.value
-		else
-			error("not implemented") -- TODO: Expand retrieval and move this function somewhere else
-		end
-	end
-
-	for i, arg in ipairs(expanded) do
-		if types.is(args[i].expected, ValueType.number) then
-			expanded[i] = assert(tonumber(arg))
-		end
-	end
-
-	return expanded
 end
 
 local function runStaticFunction(func, acc, num, args, funcPos)
