@@ -137,14 +137,14 @@ return {
 	-- writef
 
 	-- Math functions
-	["add"] = Function.basic("p n n+", function(first, ...)
+	["add"] = Function.basic("p n n n*", function(first, ...)
 		local sum = first
 		for i = 1, select("#", ...) do
 			sum = sum + select(i, ...)
 		end
 		return sum
 	end),
-	["mul"] = Function.basic("p n n+", function(first, ...)
+	["mul"] = Function.basic("p n n n*", function(first, ...)
 		local product = first
 		for i = 1, select("#", ...) do
 			product = product * select(i, ...)
@@ -171,13 +171,13 @@ return {
 	["atan2"] = Function.basic("p n n",  math.atan2),
 	["deg"]   = Function.basic("p n",    math.deg),
 	["rad"]   = Function.basic("p n",    math.rad),
-	["max"]   = Function.basic("p n n+", math.max),
-	["min"]   = Function.basic("p n n+", math.min),
+	["max"]   = Function.basic("p n n*", math.max),
+	["min"]   = Function.basic("p n n*", math.min),
 	["rand"]  = Function.basic("p",      math.random),
 	["randn"] = Function.basic("p n n",  math.random),
 
 	-- String functions
-	["concat"] = Function.basic("p s+", function(...) return table.concat({...}) end),
+	["concat"] = Function.basic("p s s*", function(...) return table.concat({...}) end),
 	["upper"]  = Function.basic("p s",     string.upper),
 	["lower"]  = Function.basic("p s",     string.lower),
 	["revstr"] = Function.basic("p s",     string.reverse),
@@ -191,7 +191,7 @@ return {
 
 	-- Logic
 	["not"] = Function.basicBool("p s", function(a) return a ~= "" end),
-	["and"] = Function.basic("p s s+", function(...)
+	["and"] = Function.basic("p s s*", function(...)
 		for i = 1, select("#", ...) do
 			if select(i, ...) == "" then
 				return false
@@ -199,7 +199,7 @@ return {
 		end
 		return true
 	end),
-	["or"]  = Function.basic("p s s+", function(...)
+	["or"]  = Function.basic("p s s*", function(...)
 		for i = 1, select("#", ...) do
 			if select(i, ...) ~= "" then
 				return true
@@ -209,7 +209,7 @@ return {
 	end),
 
 	-- Equality comparisons
-	["equal"] = Function.basic("p s s+", function(...)
+	["equal"] = Function.basic("p s s s*", function(...)
 		for i = 1, select("#", ...) do
 			if areEqual((...), select(i, ...)) then
 				return true

@@ -3,12 +3,6 @@
 	resolving parameters.
 ]]
 
---[[= struct ParameterInfo
-	- ValueType type
-	- boolean optional
-	- boolean vararg
-]]
-
 local enums = require("enums")
 local TokenType = enums.TokenType
 local ValueType = enums.ValueType
@@ -65,13 +59,13 @@ local function parseParams(paramsStr)
 	local params = {}
 
 	local numOptional = 0
-	local varargType = nil
+	local hasVararg = false
 	for paramStr in string.gmatch(paramsStr, "%S+") do
-		if varargType ~= nil then
+		if hasVararg then
 			error("vararg parameter must be the last one", 2)
 		end
 
-		local typeStr, mod = paramStr:match("^(%a)([%?%+%*]?)$")
+		local typeStr, mod = paramStr:match("^(%a)([%?%*]?)$")
 		if not typeStr then
 			error("malformed parameter '" .. paramStr .. "'", 2)
 		end
@@ -85,15 +79,15 @@ local function parseParams(paramsStr)
 			numOptional = numOptional + 1
 		elseif numOptional > 0 then
 			error("optional parameters must be the at end", 2)
-		elseif mod ~= "" then
-			varargType = mod
+		elseif mod == "*" then
+			hasVararg = true
 		end
 
 		table.insert(params, typ)
 	end
 
-	params.min = #params - numOptional - (varargType == "*" and 1 or 0)
-	params.max = (varargType ~= nil and math.huge or #params)
+	params.min = #params - numOptional - (hasVararg and 1 or 0)
+	params.max = (hasVararg and math.huge or #params)
 
 	return params
 end
