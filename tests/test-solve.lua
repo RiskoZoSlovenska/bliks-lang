@@ -116,7 +116,7 @@ describe("the solver", function()
 	end)
 
 	it("should disallow retrievals in static functions", function()
-		assert.are.same({nil, Error("static function cannot use retrievals", 8)}, {parseSolve('let hi @1')})
+		assert.are.same({nil, Error("argument 2 cannot be a retrieval", 8)}, {parseSolve('let hi @1')})
 		-- assert.are.same({nil, Error("static function cannot use retrievals", 8)}, {parseSolve('x 1 <')}) -- No such func
 	end)
 

@@ -59,8 +59,13 @@ local function typeoftoken(token)
 	return typeof(token.value)
 end
 
+-- TODO: Docs
 local function parseParams(paramsStr)
-	local params = {}
+	local params = {
+		static = {},
+		min = nil,
+		max = nil,
+	}
 
 	local numOptional = 0
 	local hasVararg = false
@@ -69,7 +74,7 @@ local function parseParams(paramsStr)
 			error("vararg parameter must be the last one", 2)
 		end
 
-		local typeStr, mod = paramStr:match("^(%a)([%?%*]?)$")
+		local static, typeStr, mod = paramStr:match("^(!?)(%a)([%?%*]?)$")
 		if not typeStr then
 			error("malformed parameter '" .. paramStr .. "'", 2)
 		end
@@ -88,6 +93,9 @@ local function parseParams(paramsStr)
 		end
 
 		table.insert(params, typ)
+		if static == "!" then
+			params.static[#params] = true
+		end
 	end
 
 	params.min = #params - numOptional - (hasVararg and 1 or 0)

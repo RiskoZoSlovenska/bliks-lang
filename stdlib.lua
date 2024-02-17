@@ -88,7 +88,7 @@ end
 -- CONTINUE: Function docstrings, manually catch errors instead of pcall, docs, tests
 return {
 	-- Values
-	["let"] = Function.compile("N s", function(state, num, name, value)
+	["let"] = Function.compile("!N !s", function(state, num, name, value)
 		state.macros[name] = value
 	end),
 	["set"] = Function.basic("p s", function(value) return value end),
@@ -116,10 +116,10 @@ return {
 	end),
 
 	-- Labels
-	[">"] = Function.compile("N", putLabel),
-	["else"] = Function.compile("s?", putConstantLabel("_else")),
-	["repeat"] = Function.compile("s?", putConstantLabel("_repeat")),
-	["end"] = Function.compile("s?", putConstantLabel("_end")),
+	[">"] = Function.compile("!N", putLabel),
+	["else"] = Function.compile("!s?", putConstantLabel("_else")),
+	["repeat"] = Function.compile("!s?", putConstantLabel("_repeat")),
+	["end"] = Function.compile("!s?", putConstantLabel("_end")),
 
 	-- Jumping
 	["goto"] = Function.new("N", nil, goTo),

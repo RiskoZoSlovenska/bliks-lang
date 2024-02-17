@@ -13,7 +13,6 @@
 --[[= struct CompiledProgram
 	- {Instruction} instructions
 	- integer begin
-	- {string:string} macros
 
 	@compound string any
 ]]
@@ -192,37 +191,24 @@ local function convertArguments(tokens, func)
 	for i, token in ipairs(tokens) do
 		local paramType = getParamTypeAtIndex(func.params, i)
 
-		if token.type == TokenType.retrieval then
-			args[i] = Argument(ArgumentType.retrieval, paramType, token.value.value, token.depth, token.pos)
-		else
+		if token.type ~= TokenType.retrieval then
 			args[i] = Argument(ArgumentType.value, paramType, token.value, nil, token.pos)
+		elseif func.params.static[i] then
+			return nil, Error("argument %d cannot be a retrieval", token.pos, i)
+		else
+			args[i] = Argument(ArgumentType.retrieval, paramType, token.value.value, token.depth, token.pos)
 		end
 	end
 
-	return args
+	return args, nil
 end
 
-local function runStaticFunction(func, acc, num, args, funcPos)
-	-- Check has no retrievals
-	for _, arg in ipairs(args) do
-		if arg.type == ArgumentType.retrieval then
-			return Error("static function cannot use retrievals", arg.pos)
-		end
-	end
-
-	local err = func.compileFunc(acc, num, table.unpack(assert(expandArgs(args)), 1, #args))
-	if err then
-		return Error(err, funcPos)
-	end
-
-	return nil
-end
 
 return function(parsed, stdlib)
 	local curNum = 1
 	local program = {
 		instructions = {},
-		macros = copy(DEFAULT_MACROS),
+		macros = copy(DEFAULT_MACROS), -- Temporary, will be removed at the end
 		begin = nil,
 	}
 
@@ -270,9 +256,9 @@ return function(parsed, stdlib)
 		end
 
 		if func.compileFunc then
-			local initErr = runStaticFunction(func, program, curNum, args, funcToken.pos)
-			if initErr then
-				return nil, initErr
+			local err = func.compileFunc(program, curNum, table.unpack(assert(expandArgs(args))))
+			if err then
+				return nil, Error(err, funcToken.pos)
 			end
 		end
 		if func.runFunc then

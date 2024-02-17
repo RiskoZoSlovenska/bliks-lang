@@ -6,8 +6,14 @@ local Token = structs.Token
 local TokenType = enums.TokenType
 local T = enums.ValueType
 
-local function Params(min, max, ...)
+local function Params(min, max, static, ...)
+	local staticSet = {}
+	for _, pos in ipairs(static or {}) do
+		staticSet[pos] = true
+	end
+
 	return {
+		static = staticSet,
 		min = min,
 		max = max,
 		...
@@ -17,23 +23,27 @@ end
 ---@diagnostic disable: undefined-global
 describe("the types module", function()
 	it("should parse empty param strings", function()
-		assert.are.same(Params(0, 0), types.parseParams(""))
-		assert.are.same(Params(0, 0), types.parseParams("   "))
+		assert.are.same(Params(0, 0, {}), types.parseParams(""))
+		assert.are.same(Params(0, 0, {}), types.parseParams("   "))
 	end)
 
 	it("should parse plain param strings", function()
-		assert.are.same(Params(4, 4, T.pointer, T.number, T.string, T.name), types.parseParams("p n s N"))
-		assert.are.same(Params(3, 3, T.pointer, T.pointer, T.pointer), types.parseParams("p p p"))
+		assert.are.same(Params(4, 4, {}, T.pointer, T.number, T.string, T.name), types.parseParams("p n s N"))
+		assert.are.same(Params(3, 3, {}, T.pointer, T.pointer, T.pointer), types.parseParams("p p p"))
 	end)
 
 	it("should parse param strings with optional params", function()
-		assert.are.same(Params(2, 4, T.pointer, T.number, T.string, T.name), types.parseParams("p n s? N?"))
-		assert.are.same(Params(0, 1, T.string), types.parseParams("s?"))
+		assert.are.same(Params(2, 4, {}, T.pointer, T.number, T.string, T.name), types.parseParams("p n s? N?"))
+		assert.are.same(Params(0, 1, {}, T.string), types.parseParams("s?"))
 	end)
 
 	it("should parse param strings with a vararg param", function()
-		assert.are.same(Params(0, math.huge, T.string), types.parseParams("s*"))
-		assert.are.same(Params(2, math.huge, T.pointer, T.number, T.string), types.parseParams("p n s*"))
+		assert.are.same(Params(0, math.huge, {}, T.string), types.parseParams("s*"))
+		assert.are.same(Params(2, math.huge, {}, T.pointer, T.number, T.string), types.parseParams("p n s*"))
+	end)
+
+	it("should parse params strings static params", function()
+		assert.are.same(Params(1, 2, { 2 }, T.string, T.string), types.parseParams("s !s?"))
 	end)
 
 	it("should fail on malformed params", function()
@@ -52,6 +62,7 @@ describe("the types module", function()
 	it("should disallow optional params in the middle", function()
 		assert.has.error(function() types.parseParams("s s? s") end, "optional parameters must be the at end")
 		assert.has.error(function() types.parseParams("s? s") end, "optional parameters must be the at end")
+		assert.has.error(function() types.parseParams("s? s*") end, "optional parameters must be the at end")
 	end)
 
 	it("should disallow non-trailing or duplicate varargs", function()
