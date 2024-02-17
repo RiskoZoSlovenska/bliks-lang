@@ -1,17 +1,16 @@
-define bottles 1
-define output 2
-define fmt1 "%d bottles of beer on the wall. %d bottles of beer. Take one down, pass it around, "
-define fmt2 "%s%d bottles of beer on the wall."
+let bottles 3
+let output 4
+let fmt1 "%d bottles of beer on the wall. %d bottles of beer. Take one down, pass it around, "
+let fmt2 "%s%d bottles of beer on the wall."
 
 
 begin
-read bottles
-tonumber bottles <
+readnum bottles
+assert @bottles "bad input"
 
-> loop
+repeat: more 1 @bottles 0; while @1:
 	format output fmt1 @bottles @bottles
 	sub bottles < 1
 	format output fmt2 < @bottles
-	add bottles < 1
 	write @output
-repeat bottles < 1 -1 loop
+continue; end

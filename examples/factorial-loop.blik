@@ -1,26 +1,23 @@
-define input 4
-define output 5
-define counter 6
+let input 4
+let output 5
+let counter 6
 
+===
 
 > factorial
 	set output 1
-	set counter 2
+	set counter 0
 
-	> loop
+	repeat: for counter < @input;
 		mul output < @counter
-	repeat counter < @input +1 loop
+	continue; end
 return
 
+===
 
 begin
-> main
-	readnum input
-	notequal 1 @input nil
-	if @1
-	> then
-		call factorial
-		write @output
-	> else
-
-goto main
+repeat: while true;
+	pollnum input
+	call factorial
+	write @output
+continue; end
