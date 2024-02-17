@@ -39,10 +39,10 @@ local DEFAULT_MACROS = {
 	ninf = -math.huge,
 	["true"] = "true",
 	["false"] = "",
-	tmp1 = 1,
-	tmp2 = 2,
-	tmp3 = 3,
-	tmp4 = 4,
+	_1 = 1,
+	_2 = 2,
+	_3 = 3,
+	_4 = 4,
 }
 
 local function copy(tbl)
