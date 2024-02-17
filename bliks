@@ -1,0 +1,73 @@
+#!/usr/bin/env lua
+
+local bliks = require("bliks")
+
+
+local function writeError(err, source, sourcename)
+	io.write(bliks.formatError(err, source, sourcename) .. "\n")
+end
+
+local function runWithInput(machine, source, sourcename)
+	repeat
+		local running, data, runErr = machine:stepUntilOutput()
+		if runErr then
+			writeError(runErr, source, sourcename)
+			break
+		elseif data == -1 then
+			machine:push(io.read("*l"))
+		elseif data then
+			io.write(tostring(data) .. "\n")
+		end
+	until not running
+end
+
+local function repl()
+	io.write(
+		"Welcome to the Bliks REPL!\n\n" ..
+		"Note that there is no continuity between commands;\n" ..
+		"each set of statements is executed in isolation.\n"
+	)
+
+	while true do
+		io.write("> ")
+
+		local line = io.read("*l")
+		local machine, machineErr = bliks.createMachine(line)
+		if not machine then
+			writeError(machineErr, line, "REPL")
+		else
+			runWithInput(machine, line, "REPL")
+		end
+	end
+end
+
+
+if not pcall(debug.getlocal, 4, 1) then -- https://stackoverflow.com/a/49376823
+	local filename = table.remove(arg, 1)
+
+	if not filename then
+		repl()
+		os.exit()
+	end
+
+	local file, err = io.open(filename)
+	if not file then
+		io.write("bliks: error: failed to read file: " .. err .. "\n")
+		os.exit()
+	end
+	local source = file:read("*a")
+	file:close()
+
+	local machine, machineErr = bliks.createMachine(source)
+	if not machine then
+		writeError(machineErr, source, filename)
+		os.exit()
+	end
+
+	for _, e in ipairs(arg) do
+		machine:push(e)
+	end
+
+	runWithInput(machine, source, filename)
+	os.exit()
+end
