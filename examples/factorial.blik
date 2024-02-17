@@ -2,6 +2,8 @@ let input 5
 let output 6
 let counter 7
 
+===
+
 begin
 readnum input
 assert @input "bad input"
@@ -9,8 +11,8 @@ assert @input "bad input"
 set output 1
 set counter 0
 
-repeat: for counter < @input;
+for counter < @input;
 	mul output < @counter
-continue; end
+end
 
 write @output

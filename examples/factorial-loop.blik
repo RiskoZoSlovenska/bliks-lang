@@ -4,20 +4,20 @@ let counter 7
 
 ===
 
-> factorial
+func factorial
 	set output 1
 	set counter 0
 
-	repeat: for counter < @input:
+	for counter < @input:
 		mul output < @counter
-	continue; end
+	end
 return
 
 ===
 
 begin
-repeat: while true:
+repeat:
 	pollnum input
 	call factorial
 	write @output
-continue; end
+end
