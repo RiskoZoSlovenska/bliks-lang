@@ -3,27 +3,18 @@ local Function = require("Function")
 local f = string.format
 
 
-local function putLabel(state, label, suffix, offset)
-	label = label .. (suffix or "")
+local function putLabel(state, label, offset)
 	state.std_labels = state.std_labels or {}
 	state.std_labels[label] = state.std_labels[label] or {}
 	table.insert(state.std_labels[label], state.curInstruction + (offset or 0))
 	return nil
 end
 
-local function putConstantLabel(label, offset)
-	return function(state, suffix)
-		return putLabel(state, label, suffix, offset)
-	end
-end
-
 local function getLabelPositions(acc, label)
 	return acc.std_labels and acc.std_labels[label] or nil
 end
 
-local function jumpToNextLabel(out, state, label, suffix)
-	label = label .. (suffix or "")
-
+local function jumpToNextLabel(out, state, label)
 	local labels = getLabelPositions(state, label)
 	if labels then
 		for _, labelPos in ipairs(labels) do
@@ -37,9 +28,7 @@ local function jumpToNextLabel(out, state, label, suffix)
 	return f("no succeeding label '%s'", label)
 end
 
-local function jumpToPreviousLabel(out, state, label, suffix)
-	label = label .. (suffix or "")
-
+local function jumpToPreviousLabel(out, state, label)
 	local labels = getLabelPositions(state, label)
 	if labels then
 		local i = 1
@@ -55,9 +44,7 @@ local function jumpToPreviousLabel(out, state, label, suffix)
 	end
 end
 
-local function goTo(out, state, label, suffix)
-	label = label .. (suffix or "")
-
+local function goTo(out, state, label)
 	local labels = getLabelPositions(state, label)
 	if not labels then
 		return f("no such label '%s'", label)
@@ -67,6 +54,38 @@ local function goTo(out, state, label, suffix)
 		out.nextInstruction = assert(labels[1])
 	end
 end
+
+
+local function putJumpDest(state, dest)
+	state.std_jumpDests = state.std_jumpDests or {}
+	state.std_jumpDests[state.curInstruction] = dest
+	return nil
+end
+
+local function getJumpDest(state, out)
+	return state.std_jumpDests[out.curInstruction]
+end
+
+local function increaseCounter(state, name)
+	local current = (state[name] or 0) + 1
+	state[name] = current
+	return current
+end
+
+local function decreaseCounter(state, name)
+	local current = state[name]
+	if not current then return nil end
+
+	state[name] = current - 1
+	return current
+end
+
+local function c_incrCounterAndPutAsJumpDest(labelBase, counterName)
+	return function(state)
+		return putJumpDest(state, labelBase .. increaseCounter(state, counterName))
+	end
+end
+
 
 local function areEqual(a, b)
 	if a == b then
@@ -123,59 +142,97 @@ return {
 	["jump"] = Function.new("N", nil, jumpToNextLabel),
 
 	-- If statements
-	["if"] = Function.new("s s?", nil, function(out, state, value, suffix)
+	["if"] = Function.new("s", c_incrCounterAndPutAsJumpDest("_ELSE", "std_ifLevel"), function(out, state, value)
 		if value ~= "" then return nil end
-		return jumpToNextLabel(out, state, "_else", suffix)
+		return jumpToNextLabel(out, state, getJumpDest(state, out))
 	end),
-	["ifnot"] = Function.new("s s?", nil, function(out, state, value, suffix)
+	["ifnot"] = Function.new("s", c_incrCounterAndPutAsJumpDest("_ELSE", "std_ifLevel"), function(out, state, value)
 		if value == "" then return nil end
-		return jumpToNextLabel(out, state, "_else", suffix)
+		return jumpToNextLabel(out, state, getJumpDest(state, out))
 	end),
-	["else"] = Function.compile("!s?", putConstantLabel("_else")),
+	["else"] = Function.compile("", function(state)
+		local level = decreaseCounter(state, "std_ifLevel")
+		if not level or level < 1 then
+			return "else defined without a corresponding if/ifnot"
+		end
+		return putLabel(state, "_ELSE" .. level, 0)
+	end),
 
 	-- Loops
-	["repeat"] = Function.compile("!s?", putConstantLabel("_repeat")),
-	["endif"] = Function.new("s !s?", nil, function(out, state, value, suffix)
-		if value == "" then return nil end
-		return jumpToNextLabel(out, state, "_end", suffix)
+	["repeat"] = Function.compile("", function(state)
+		return putLabel(state, "_LOOP" .. increaseCounter(state, "std_loopLevel"), 0)
 	end),
-	["while"] = Function.new("s !s?", function(state, _, suffix)
-		return putLabel(state, "_repeat", suffix)
-	end, function(out, state, value, suffix)
-		if value ~= "" then return nil end
-		return jumpToNextLabel(out, state, "_end", suffix)
-	end),
-	["for"] = Function.new("p n n n? !s?", function(state, _, _, _, _, suffix)
-		return putLabel(state, "_repeat", suffix)
-	end, function(out, state, pointer, i, stop, step, suffix)
-		if step == 0 then
-			return "step cannot be nil"
-		end
-		step = step or 1
+	["endif"] = Function.new("s",
+		function(state)
+			local level = state.std_loopLevel
+			if not level or level < 1 then
+				return "endif not within a loop"
+			end
 
-		i = i + step
-		out.registers[pointer] = i
-
-		if (step > 0 and i > stop) or (step < 0 and i < stop) then
-			return jumpToNextLabel(out, state, "_end", suffix)
+			return putJumpDest(state, "_END" .. level)
+		end,
+		function(out, state, value)
+			if value == "" then return nil end
+			return jumpToNextLabel(out, state, getJumpDest(state, out))
 		end
+	),
+	["while"] = Function.new("s",
+		function(state)
+			local level = increaseCounter(state, "std_loopLevel")
+			putLabel(state, "_LOOP" .. level, 0)
+			return putJumpDest(state, "_END" .. level)
+		end,
+		function(out, state, value)
+			if value ~= "" then return nil end
+			return jumpToNextLabel(out, state, getJumpDest(state, out))
+		end
+	),
+	["for"] = Function.new("p n n n?",
+		function(state)
+			local level = increaseCounter(state, "std_loopLevel")
+			putLabel(state, "_LOOP" .. level, 0)
+			return putJumpDest(state, "_END" .. level)
+		end,
+		function(out, state, pointer, i, stop, step)
+			if step == 0 then
+				return "step cannot be nil"
+			end
+			step = step or 1
+
+			i = i + step
+			out.registers[pointer] = i
+
+			if (step > 0 and i > stop) or (step < 0 and i < stop) then
+				return jumpToNextLabel(out, state, getJumpDest(state, out))
+			end
+		end
+	),
+	["break"] = Function.new("", c_incrCounterAndPutAsJumpDest("_END", "std_loopLevel"), function(out, state)
+		return jumpToNextLabel(out, state, getJumpDest(state, out))
 	end),
-	["break"] = Function.new("!s?", nil, function(out, state, suffix)
-		return jumpToNextLabel(out, state, "_end", suffix)
+	["continue"] = Function.new("", c_incrCounterAndPutAsJumpDest("_LOOP", "std_loopLevel"), function(out, state)
+		return jumpToPreviousLabel(out, state, getJumpDest(state, out))
 	end),
-	["continue"] = Function.new("!s?", nil, function(out, state, suffix)
-		return jumpToPreviousLabel(out, state, "_repeat", suffix)
-	end),
-	["end"] = Function.new("!s?", putConstantLabel("_end", 1), function(out, state, suffix)
-		return jumpToPreviousLabel(out, state, "_repeat", suffix)
-	end),
+	["end"] = Function.new("",
+		function(state)
+			local level = decreaseCounter(state, "std_loopLevel")
+			if not level or level < 1 then
+				return "end not closing any loop"
+			end
+
+			putJumpDest(state, "_LOOP" .. level)
+			return putLabel(state, "_END" .. level, 1)
+		end, function(out, state)
+			return jumpToPreviousLabel(out, state, getJumpDest(state, out))
+		end
+	),
 
 	["func"] = Function.compile("!N", function(state, name)
 		if getLabelPositions(state, name) then
-			return "a label with this name has already been defined!"
+			return "cannot define function because this label already exists"
 		end
 
-		return putLabel(state, name, nil)
+		return putLabel(state, name, 0)
 	end),
 	["call"] = Function.new("N", nil, function(out, state, label)
 		if state.std_return then
