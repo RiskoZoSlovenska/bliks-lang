@@ -3,7 +3,7 @@ local Function = require("Function")
 local f = string.format
 
 
-local function putLabel(state, num, label, suffix)
+local function putLabel(state, num, label)
 	state.std_labels = state.std_labels or {}
 	state.std_labels[label] = state.std_labels[label] or {}
 	table.insert(state.std_labels[label], num)
@@ -85,57 +85,58 @@ local function format(fmt, ...)
 end
 
 
+-- CONTINUE: Function docstrings, manually catch errors instead of pcall, docs, tests
 return {
 	-- Values
-	["let"] = Function.new("N s", true, function(state, num, name, value)
+	["let"] = Function.compile("N s", function(state, num, name, value)
 		state.macros[name] = value
 	end),
 	["set"] = Function.basic("p s", function(value) return value end),
 
 	-- Starting and stopping
-	["begin"] = Function.new("", true, function(state, num)
+	["begin"] = Function.compile("", function(state, num)
 		if state.begin then
 			return "beginning has already been defined"
 		end
 
 		state.begin = num
 	end),
-	["stop"] = Function.new("", false, function(out, state, num)
+	["stop"] = Function.new("", nil, function(out, state, num)
 		out.nextInstruction = -1
 	end),
-	["throw"] = Function.new("s", false, function(out, state, num, message)
+	["throw"] = Function.new("s", nil, function(out, state, num, message)
 		return message
 	end),
-	["assert"] = Function.new("s s?", false, function(out, state, num, value, message)
+	["assert"] = Function.new("s s?", nil, function(out, state, num, value, message)
 		if value ~= "" then return end
 		return message or "value was false"
 	end),
-	["==="] = Function.new("", false, function(out, state, num)
+	["==="] = Function.new("", nil, function(out, state, num)
 		return "boundary was crossed"
 	end),
 
 	-- Labels
-	[">"] = Function.new("N", true, putLabel),
-	["else"] = Function.new("s?", true, putConstantLabel("_else")),
-	["repeat"] = Function.new("s?", true, putConstantLabel("_repeat")),
-	["end"] = Function.new("s?", true, putConstantLabel("_end")),
+	[">"] = Function.compile("N", putLabel),
+	["else"] = Function.compile("s?", putConstantLabel("_else")),
+	["repeat"] = Function.compile("s?", putConstantLabel("_repeat")),
+	["end"] = Function.compile("s?", putConstantLabel("_end")),
 
 	-- Jumping
-	["goto"] = Function.new("N", false, goTo),
-	["jump"] = Function.new("N", false, jumpToNextLabel),
-	["if"] = Function.new("s s?", false, function(out, state, cur, value, suffix)
+	["goto"] = Function.new("N", nil, goTo),
+	["jump"] = Function.new("N", nil, jumpToNextLabel),
+	["if"] = Function.new("s s?", nil, function(out, state, cur, value, suffix)
 		if value ~= "" then return nil end
 		return jumpToNextLabel(out, state, cur, "_else", suffix)
 	end),
-	["ifnot"] = Function.new("s s?", false, function(out, state, cur, value, suffix)
+	["ifnot"] = Function.new("s s?", nil, function(out, state, cur, value, suffix)
 		if value == "" then return nil end
 		return jumpToNextLabel(out, state, cur, "_else", suffix)
 	end),
-	["while"] = Function.new("s s?", false, function(out, state, cur, value, suffix)
+	["while"] = Function.new("s s?", nil, function(out, state, cur, value, suffix)
 		if value ~= "" then return nil end
 		return jumpToNextLabel(out, state, cur, "_end", suffix)
 	end),
-	["for"] = Function.new("p n n n? s?", false, function(out, state, cur, pointer, i, stop, step, suffix)
+	["for"] = Function.new("p n n n? s?", nil, function(out, state, cur, pointer, i, stop, step, suffix)
 		if step == 0 then
 			return "step cannot be nil"
 		end
@@ -148,13 +149,13 @@ return {
 			return jumpToNextLabel(out, state, cur, "_end", suffix)
 		end
 	end),
-	["break"] = Function.new("s?", false, function(out, state, cur, suffix)
+	["break"] = Function.new("s?", nil, function(out, state, cur, suffix)
 		return jumpToNextLabel(out, state, cur, "_end", suffix)
 	end),
-	["continue"] = Function.new("s?", false, function(out, state, cur, suffix)
+	["continue"] = Function.new("s?", nil, function(out, state, cur, suffix)
 		return jumpToPreviousLabel(out, state, cur, "_repeat", suffix)
 	end),
-	["call"] = Function.new("N", false, function(out, state, cur, label)
+	["call"] = Function.new("N", nil, function(out, state, cur, label)
 		if state.std_return then
 			return "already in a function!"
 		end
@@ -162,7 +163,7 @@ return {
 		state.std_return = cur
 		return goTo(out, state, cur, label)
 	end),
-	["return"] = Function.new("", false, function(out, state, cur)
+	["return"] = Function.new("", nil, function(out, state, cur)
 		if not state.std_return then
 			return "not in a function!"
 		end
@@ -171,13 +172,13 @@ return {
 		state.std_return = nil
 	end),
 
-	["read"] = Function.new("p", false, function(out, state, cur, pointer)
+	["read"] = Function.new("p", nil, function(out, state, cur, pointer)
 		out.registers[pointer] = out.popBuffer()
 	end),
-	["readnum"] = Function.new("p", false, function(out, state, cur, pointer)
+	["readnum"] = Function.new("p", nil, function(out, state, cur, pointer)
 		out.registers[pointer] = tonumber(out.popBuffer())
 	end),
-	["poll"] = Function.new("p", false, function(out, state, cur, pointer)
+	["poll"] = Function.new("p", nil, function(out, state, cur, pointer)
 		local data = out.popBuffer()
 		if not data then
 			out.output = -1
@@ -186,7 +187,7 @@ return {
 			out.registers[pointer] = data
 		end
 	end),
-	["pollnum"] = Function.new("p", false, function(out, state, cur, pointer)
+	["pollnum"] = Function.new("p", nil, function(out, state, cur, pointer)
 		local data = tonumber(out.popBuffer())
 		if not data then
 			out.output = -1
@@ -195,10 +196,10 @@ return {
 			out.registers[pointer] = data
 		end
 	end),
-	["write"] = Function.new("s", false, function(out, state, cur, data)
+	["write"] = Function.new("s", nil, function(out, state, cur, data)
 		out.output = tostring(data)
 	end),
-	["writef"] = Function.new("s s*", false, function(out, state, cur, data, ...)
+	["writef"] = Function.new("s s*", nil, function(out, state, cur, data, ...)
 		out.output = format(tostring(data), ...)
 	end),
 
@@ -244,12 +245,13 @@ return {
 
 	-- String functions
 	["concat"] = Function.basic("p s s*", function(...) return table.concat({...}) end),
-	["upper"]  = Function.basic("p s",     string.upper),
-	["lower"]  = Function.basic("p s",     string.lower),
-	["revstr"] = Function.basic("p s",     string.reverse),
-	["len"]    = Function.basic("p s",     string.len),
-	["byte"]   = Function.basic("p s",     string.byte),
+	["upper"]  = Function.basic("p s",    string.upper),
+	["lower"]  = Function.basic("p s",    string.lower),
+	["revstr"] = Function.basic("p s",    string.reverse),
+	["len"]    = Function.basic("p s",    string.len),
+	["byte"]   = Function.basic("p s",    string.byte),
 
+	-- TODO: These are unsafe, handle errors in them better or smth
 	["substr"] = Function.basic("p s n n", string.sub),
 	["char"]   = Function.basic("p s",     string.char),
 	["match"]  = Function.basic("p s s",   string.match),

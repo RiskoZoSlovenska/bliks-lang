@@ -210,7 +210,7 @@ local function runStaticFunction(func, acc, num, args, funcPos)
 		end
 	end
 
-	local err = func.func(acc, num, table.unpack(assert(expandArgs(args)), 1, #args))
+	local err = func.compileFunc(acc, num, table.unpack(assert(expandArgs(args)), 1, #args))
 	if err then
 		return Error(err, funcPos)
 	end
@@ -269,12 +269,13 @@ return function(parsed, stdlib)
 			return nil, argsErr
 		end
 
-		if func.isStatic then
+		if func.compileFunc then
 			local initErr = runStaticFunction(func, program, curNum, args, funcToken.pos)
 			if initErr then
 				return nil, initErr
 			end
-		else
+		end
+		if func.runFunc then
 			table.insert(program.instructions, Instruction(func, args, curNum, funcToken.pos))
 			curNum = curNum + 1
 		end

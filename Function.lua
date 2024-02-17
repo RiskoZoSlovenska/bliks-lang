@@ -2,16 +2,20 @@ local types = require("types")
 
 
 
-local function new(params, isStatic, func)
+local function new(params, compileFunc, runFunc)
 	return {
 		params = types.parseParams(params),
-		isStatic = isStatic,
-		func = assert(func),
+		compileFunc = compileFunc,
+		runFunc = runFunc,
 	}
 end
 
+local function compile(params, func)
+	return new(params, func, nil)
+end
+
 local function basic(params, func)
-	return new(params, false, function(out, state, num, pointer, ...)
+	return new(params, nil, function(out, state, num, pointer, ...)
 		local ok, ret, err = pcall(func, ...)
 		if not ok then
 			return ret
@@ -30,6 +34,7 @@ end
 
 return {
 	new = new,
+	compile = compile,
 	basic = basic,
 	basicBool = basicBool,
 }

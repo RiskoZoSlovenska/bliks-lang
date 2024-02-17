@@ -49,7 +49,7 @@ function Machine:step()
 	end
 
 	-- Run function
-	local runErr = instruction.func.func(self._interface, self._compiled, curIndex, table.unpack(args))
+	local runErr = instruction.func.runFunc(self._interface, self._compiled, curIndex, table.unpack(args))
 	if runErr then
 		return false, nil, Error(runErr, instruction.pos)
 	end
