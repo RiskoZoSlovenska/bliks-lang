@@ -15,7 +15,7 @@ local function compile(params, func)
 end
 
 local function basic(params, func)
-	return new(params, nil, function(out, state, num, pointer, ...)
+	return new(params, nil, function(out, state, pointer, ...)
 		local ok, ret, err = pcall(func, ...)
 		if not ok then
 			return ret

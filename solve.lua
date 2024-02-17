@@ -205,10 +205,10 @@ end
 
 
 return function(parsed, stdlib)
-	local curNum = 1
 	local program = {
 		instructions = {},
 		macros = copy(DEFAULT_MACROS), -- Temporary, will be removed at the end
+		curInstruction = 1, -- Temporary and read-only
 		begin = nil,
 	}
 
@@ -256,19 +256,20 @@ return function(parsed, stdlib)
 		end
 
 		if func.compileFunc then
-			local err = func.compileFunc(program, curNum, table.unpack(assert(expandArgs(args, nil))))
+			program.curInstruction = #program.instructions + 1
+			local err = func.compileFunc(program, table.unpack(assert(expandArgs(args, nil))))
 			if err then
 				return nil, Error(err, funcToken.pos)
 			end
 		end
 		if func.runFunc then
-			table.insert(program.instructions, Instruction(func, args, curNum, funcToken.pos))
-			curNum = curNum + 1
+			table.insert(program.instructions, Instruction(func, args, #program.instructions + 1, funcToken.pos))
 		end
 	end
 
 	program.begin = program.begin or 1
 	program.macros = nil
+	program.curInstruction = nil
 
 	return program
 end

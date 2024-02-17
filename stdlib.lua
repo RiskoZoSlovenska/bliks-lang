@@ -3,19 +3,17 @@ local Function = require("Function")
 local f = string.format
 
 
-local function putLabel(state, num, label, suffix)
+local function putLabel(state, label, suffix, offset)
 	label = label .. (suffix or "")
 	state.std_labels = state.std_labels or {}
 	state.std_labels[label] = state.std_labels[label] or {}
-	table.insert(state.std_labels[label], num)
+	table.insert(state.std_labels[label], state.curInstruction + (offset or 0))
 	return nil
 end
 
 local function putConstantLabel(label, offset)
-	offset = offset or 0
-
-	return function(state, cur, suffix)
-		return putLabel(state, cur + offset, label, suffix)
+	return function(state, suffix)
+		return putLabel(state, label, suffix, offset)
 	end
 end
 
@@ -23,13 +21,13 @@ local function getLabelPositions(acc, label)
 	return acc.std_labels and acc.std_labels[label] or nil
 end
 
-local function jumpToNextLabel(out, state, cur, label, suffix)
+local function jumpToNextLabel(out, state, label, suffix)
 	label = label .. (suffix or "")
 
 	local labels = getLabelPositions(state, label)
 	if labels then
 		for _, labelPos in ipairs(labels) do
-			if labelPos > cur then
+			if labelPos > out.curInstruction then
 				out.nextInstruction = labelPos
 				return
 			end
@@ -39,13 +37,13 @@ local function jumpToNextLabel(out, state, cur, label, suffix)
 	return f("no succeeding label '%s'", label)
 end
 
-local function jumpToPreviousLabel(out, state, cur, label, suffix)
+local function jumpToPreviousLabel(out, state, label, suffix)
 	label = label .. (suffix or "")
 
 	local labels = getLabelPositions(state, label)
 	if labels then
 		local i = 1
-		while i <= #labels and labels[i] < cur do
+		while i <= #labels and labels[i] < out.curInstruction do
 			i = i + 1
 		end
 
@@ -57,7 +55,7 @@ local function jumpToPreviousLabel(out, state, cur, label, suffix)
 	end
 end
 
-local function goTo(out, state, cur, label, suffix)
+local function goTo(out, state, label, suffix)
 	label = label .. (suffix or "")
 
 	local labels = getLabelPositions(state, label)
@@ -92,30 +90,30 @@ end
 -- CONTINUE: Function docstrings, manually catch errors instead of pcall, docs, tests
 return {
 	-- Values
-	["let"] = Function.compile("!N !s", function(state, num, name, value)
+	["let"] = Function.compile("!N !s", function(state, name, value)
 		state.macros[name] = value
 	end),
 	["set"] = Function.basic("p s", function(value) return value end),
 
 	-- Starting and stopping
-	["begin"] = Function.compile("", function(state, num)
+	["begin"] = Function.compile("", function(state)
 		if state.begin then
 			return "beginning has already been defined"
 		end
 
-		state.begin = num
+		state.begin = state.curInstruction
 	end),
-	["stop"] = Function.new("", nil, function(out, state, num)
+	["stop"] = Function.new("", nil, function(out, state)
 		out.nextInstruction = -1
 	end),
-	["throw"] = Function.new("s", nil, function(out, state, num, message)
+	["throw"] = Function.new("s", nil, function(out, state, message)
 		return message
 	end),
-	["assert"] = Function.new("s s?", nil, function(out, state, num, value, message)
+	["assert"] = Function.new("s s?", nil, function(out, state, value, message)
 		if value ~= "" then return end
 		return message or "value was false"
 	end),
-	["==="] = Function.new("", nil, function(out, state, num)
+	["==="] = Function.new("", nil, function(out, state)
 		return "boundary was crossed"
 	end),
 
@@ -125,31 +123,31 @@ return {
 	["jump"] = Function.new("N", nil, jumpToNextLabel),
 
 	-- If statements
-	["if"] = Function.new("s s?", nil, function(out, state, cur, value, suffix)
+	["if"] = Function.new("s s?", nil, function(out, state, value, suffix)
 		if value ~= "" then return nil end
-		return jumpToNextLabel(out, state, cur, "_else", suffix)
+		return jumpToNextLabel(out, state, "_else", suffix)
 	end),
-	["ifnot"] = Function.new("s s?", nil, function(out, state, cur, value, suffix)
+	["ifnot"] = Function.new("s s?", nil, function(out, state, value, suffix)
 		if value == "" then return nil end
-		return jumpToNextLabel(out, state, cur, "_else", suffix)
+		return jumpToNextLabel(out, state, "_else", suffix)
 	end),
 	["else"] = Function.compile("!s?", putConstantLabel("_else")),
 
 	-- Loops
 	["repeat"] = Function.compile("!s?", putConstantLabel("_repeat")),
-	["endif"] = Function.new("s !s?", nil, function(out, state, cur, value, suffix)
+	["endif"] = Function.new("s !s?", nil, function(out, state, value, suffix)
 		if value == "" then return nil end
-		return jumpToNextLabel(out, state, cur, "_end", suffix)
+		return jumpToNextLabel(out, state, "_end", suffix)
 	end),
-	["while"] = Function.new("s !s?", function(state, num, _, suffix)
-		return putLabel(state, num, "_repeat", suffix)
-	end, function(out, state, cur, value, suffix)
+	["while"] = Function.new("s !s?", function(state, _, suffix)
+		return putLabel(state, "_repeat", suffix)
+	end, function(out, state, value, suffix)
 		if value ~= "" then return nil end
-		return jumpToNextLabel(out, state, cur, "_end", suffix)
+		return jumpToNextLabel(out, state, "_end", suffix)
 	end),
-	["for"] = Function.new("p n n n? !s?", function(state, num, _, _, _, _, suffix)
-		return putLabel(state, num, "_repeat", suffix)
-	end, function(out, state, cur, pointer, i, stop, step, suffix)
+	["for"] = Function.new("p n n n? !s?", function(state, _, _, _, _, suffix)
+		return putLabel(state, "_repeat", suffix)
+	end, function(out, state, pointer, i, stop, step, suffix)
 		if step == 0 then
 			return "step cannot be nil"
 		end
@@ -159,35 +157,35 @@ return {
 		out.registers[pointer] = i
 
 		if (step > 0 and i > stop) or (step < 0 and i < stop) then
-			return jumpToNextLabel(out, state, cur, "_end", suffix)
+			return jumpToNextLabel(out, state, "_end", suffix)
 		end
 	end),
-	["break"] = Function.new("!s?", nil, function(out, state, cur, suffix)
-		return jumpToNextLabel(out, state, cur, "_end", suffix)
+	["break"] = Function.new("!s?", nil, function(out, state, suffix)
+		return jumpToNextLabel(out, state, "_end", suffix)
 	end),
-	["continue"] = Function.new("!s?", nil, function(out, state, cur, suffix)
-		return jumpToPreviousLabel(out, state, cur, "_repeat", suffix)
+	["continue"] = Function.new("!s?", nil, function(out, state, suffix)
+		return jumpToPreviousLabel(out, state, "_repeat", suffix)
 	end),
-	["end"] = Function.new("!s?", putConstantLabel("_end", 1), function(out, state, cur, suffix)
-		return jumpToPreviousLabel(out, state, cur, "_repeat", suffix)
+	["end"] = Function.new("!s?", putConstantLabel("_end", 1), function(out, state, suffix)
+		return jumpToPreviousLabel(out, state, "_repeat", suffix)
 	end),
 
-	["func"] = Function.compile("!N", function(state, num, name)
+	["func"] = Function.compile("!N", function(state, name)
 		if getLabelPositions(state, name) then
 			return "a label with this name has already been defined!"
 		end
 
-		return putLabel(state, num, name, nil)
+		return putLabel(state, name, nil)
 	end),
-	["call"] = Function.new("N", nil, function(out, state, cur, label)
+	["call"] = Function.new("N", nil, function(out, state, label)
 		if state.std_return then
 			return "already in a function!"
 		end
 
-		state.std_return = cur
-		return goTo(out, state, cur, label)
+		state.std_return = out.curInstruction
+		return goTo(out, state, label)
 	end),
-	["return"] = Function.new("", nil, function(out, state, cur)
+	["return"] = Function.new("", nil, function(out, state)
 		if not state.std_return then
 			return "not in a function!"
 		end
@@ -196,34 +194,34 @@ return {
 		state.std_return = nil
 	end),
 
-	["read"] = Function.new("p", nil, function(out, state, cur, pointer)
+	["read"] = Function.new("p", nil, function(out, state, pointer)
 		out.registers[pointer] = out.popBuffer()
 	end),
-	["readnum"] = Function.new("p", nil, function(out, state, cur, pointer)
+	["readnum"] = Function.new("p", nil, function(out, state, pointer)
 		out.registers[pointer] = tonumber(out.popBuffer())
 	end),
-	["poll"] = Function.new("p", nil, function(out, state, cur, pointer)
+	["poll"] = Function.new("p", nil, function(out, state, pointer)
 		local data = out.popBuffer()
 		if not data then
 			out.output = -1
-			out.nextInstruction = cur
+			out.nextInstruction = out.curInstruction
 		else
 			out.registers[pointer] = data
 		end
 	end),
-	["pollnum"] = Function.new("p", nil, function(out, state, cur, pointer)
+	["pollnum"] = Function.new("p", nil, function(out, state, pointer)
 		local data = tonumber(out.popBuffer())
 		if not data then
 			out.output = -1
-			out.nextInstruction = cur
+			out.nextInstruction = out.curInstruction
 		else
 			out.registers[pointer] = data
 		end
 	end),
-	["write"] = Function.new("s", nil, function(out, state, cur, data)
+	["write"] = Function.new("s", nil, function(out, state, data)
 		out.output = tostring(data)
 	end),
-	["writef"] = Function.new("s s*", nil, function(out, state, cur, data, ...)
+	["writef"] = Function.new("s s*", nil, function(out, state, data, ...)
 		out.output = format(tostring(data), ...)
 	end),
 

@@ -34,8 +34,8 @@ end
 
 function Machine:step()
 	-- Get instruction, or stop if no such
-	local curIndex = self._interface.nextInstruction
-	local instruction = self._compiled.instructions[curIndex]
+	self._interface.curInstruction = self._interface.nextInstruction
+	local instruction = self._compiled.instructions[self._interface.curInstruction]
 	if not instruction then
 		return false, nil, nil
 	end
@@ -49,7 +49,7 @@ function Machine:step()
 	end
 
 	-- Run function
-	local runErr = instruction.func.runFunc(self._interface, self._compiled, curIndex, table.unpack(args))
+	local runErr = instruction.func.runFunc(self._interface, self._compiled, table.unpack(args))
 	if runErr then
 		return false, nil, Error(runErr, instruction.pos)
 	end
