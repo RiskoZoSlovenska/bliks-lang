@@ -1,6 +1,6 @@
-let input 4
-let output 5
-let counter 6
+let input 5
+let output 6
+let counter 7
 
 ===
 
@@ -8,7 +8,7 @@ let counter 6
 	set output 1
 	set counter 0
 
-	repeat: for counter < @input;
+	repeat: for counter < @input:
 		mul output < @counter
 	continue; end
 return
@@ -16,7 +16,7 @@ return
 ===
 
 begin
-repeat: while true;
+repeat: while true:
 	pollnum input
 	call factorial
 	write @output

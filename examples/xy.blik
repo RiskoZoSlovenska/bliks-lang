@@ -1,19 +1,20 @@
-define x 1
-define y 2
-define x2 3
-define y2 4
-define output 6
-define fmt "Coordinate: (%d, %d)"
+let x 5
+let y 6
+let x2 7
+let y2 8
+let output 9
+let fmt "Coordinate: (%, %)"
 
 begin
 readnum x2
+assert @x2 "bad input"
 readnum y2
+assert @y2 "bad input"
 
-set x 1
-> xloop
-	set y 1
-	> yloop
-		format output fmt @x @y
-		write @output
-	repeat y < @y2 1 yloop
-repeat x < @x2 +1 xloop
+set x 0
+repeat "x": for x < @x2 +1 "x":
+	set y 0
+	repeat "y": for y < @y2 +1 "y":
+		writef fmt @x @y
+	continue "y"; end "y"
+continue "x"; end "x"

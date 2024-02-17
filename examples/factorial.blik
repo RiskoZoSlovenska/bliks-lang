@@ -1,6 +1,6 @@
-let input 1
-let output 2
-let counter 3
+let input 5
+let output 6
+let counter 7
 
 begin
 readnum input

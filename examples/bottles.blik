@@ -1,5 +1,5 @@
-let bottles 3
-let output 4
+let bottles 5
+let output 6
 let fmt1 "%d bottles of beer on the wall. %d bottles of beer. Take one down, pass it around, "
 let fmt2 "%s%d bottles of beer on the wall."
 
@@ -8,7 +8,7 @@ begin
 readnum bottles
 assert @bottles "bad input"
 
-repeat: more 1 @bottles 0; while @1:
+repeat: more tmp1 @bottles 0; while @tmp1:
 	format output fmt1 @bottles @bottles
 	sub bottles < 1
 	format output fmt2 < @bottles
