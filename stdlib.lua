@@ -3,15 +3,19 @@ local Function = require("Function")
 local f = string.format
 
 
-local function putLabel(state, num, label)
+local function putLabel(state, num, label, suffix)
+	label = label .. (suffix or "")
 	state.std_labels = state.std_labels or {}
 	state.std_labels[label] = state.std_labels[label] or {}
 	table.insert(state.std_labels[label], num)
+	return nil
 end
 
-local function putConstantLabel(label)
+local function putConstantLabel(label, offset)
+	offset = offset or 0
+
 	return function(state, cur, suffix)
-		return putLabel(state, cur, label .. (suffix or ""))
+		return putLabel(state, cur + offset, label, suffix)
 	end
 end
 
@@ -115,15 +119,12 @@ return {
 		return "boundary was crossed"
 	end),
 
-	-- Labels
-	[">"] = Function.compile("!N", putLabel),
-	["else"] = Function.compile("!s?", putConstantLabel("_else")),
-	["repeat"] = Function.compile("!s?", putConstantLabel("_repeat")),
-	["end"] = Function.compile("!s?", putConstantLabel("_end")),
-
 	-- Jumping
+	[">"] = Function.compile("!N", putLabel),
 	["goto"] = Function.new("N", nil, goTo),
 	["jump"] = Function.new("N", nil, jumpToNextLabel),
+
+	-- If statements
 	["if"] = Function.new("s s?", nil, function(out, state, cur, value, suffix)
 		if value ~= "" then return nil end
 		return jumpToNextLabel(out, state, cur, "_else", suffix)
@@ -132,11 +133,23 @@ return {
 		if value == "" then return nil end
 		return jumpToNextLabel(out, state, cur, "_else", suffix)
 	end),
-	["while"] = Function.new("s s?", nil, function(out, state, cur, value, suffix)
+	["else"] = Function.compile("!s?", putConstantLabel("_else")),
+
+	-- Loops
+	["repeat"] = Function.compile("!s?", putConstantLabel("_repeat")),
+	["endif"] = Function.new("s !s?", nil, function(out, state, cur, value, suffix)
+		if value == "" then return nil end
+		return jumpToNextLabel(out, state, cur, "_end", suffix)
+	end),
+	["while"] = Function.new("s !s?", function(state, num, _, suffix)
+		return putLabel(state, num, "_repeat", suffix)
+	end, function(out, state, cur, value, suffix)
 		if value ~= "" then return nil end
 		return jumpToNextLabel(out, state, cur, "_end", suffix)
 	end),
-	["for"] = Function.new("p n n n? s?", nil, function(out, state, cur, pointer, i, stop, step, suffix)
+	["for"] = Function.new("p n n n? !s?", function(state, num, _, _, _, _, suffix)
+		return putLabel(state, num, "_repeat", suffix)
+	end, function(out, state, cur, pointer, i, stop, step, suffix)
 		if step == 0 then
 			return "step cannot be nil"
 		end
@@ -149,11 +162,22 @@ return {
 			return jumpToNextLabel(out, state, cur, "_end", suffix)
 		end
 	end),
-	["break"] = Function.new("s?", nil, function(out, state, cur, suffix)
+	["break"] = Function.new("!s?", nil, function(out, state, cur, suffix)
 		return jumpToNextLabel(out, state, cur, "_end", suffix)
 	end),
-	["continue"] = Function.new("s?", nil, function(out, state, cur, suffix)
+	["continue"] = Function.new("!s?", nil, function(out, state, cur, suffix)
 		return jumpToPreviousLabel(out, state, cur, "_repeat", suffix)
+	end),
+	["end"] = Function.new("!s?", putConstantLabel("_end", 1), function(out, state, cur, suffix)
+		return jumpToPreviousLabel(out, state, cur, "_repeat", suffix)
+	end),
+
+	["func"] = Function.compile("!N", function(state, num, name)
+		if getLabelPositions(state, name) then
+			return "a label with this name has already been defined!"
+		end
+
+		return putLabel(state, num, name, nil)
 	end),
 	["call"] = Function.new("N", nil, function(out, state, cur, label)
 		if state.std_return then
