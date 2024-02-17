@@ -2,6 +2,8 @@
 	Takes a list of arguments (and, if necessary, registers) and expands each
 	argument, converts numbers, handles and checks retrievals.
 
+	TODO: Document this better
+
 	@param {Argument} args
 	@param {integer:string}? registers Only required if `args` contains
 	  retrievals.
@@ -19,6 +21,8 @@ local ArgumentType = enums.ArgumentType
 local ValueType = enums.ValueType
 
 local Error = structs.Error
+
+local DUMMY = {}
 
 
 local function formatTrace(trace)
@@ -58,9 +62,12 @@ return function(args, registers)
 		if arg.type == ArgumentType.value then
 			-- No retrieval required
 			expanded[i] = arg.value
+		elseif not registers then
+			-- Retrieval, but no registers; return a dummy value
+			expanded[i] = DUMMY
 		else
 			-- Retrieve
-			local value, trace, retrievalErr = expandRetrieval(arg, assert(registers))
+			local value, trace, retrievalErr = expandRetrieval(arg, registers)
 			if not value then
 				return nil, retrievalErr
 			end
@@ -80,7 +87,7 @@ return function(args, registers)
 
 	-- Cast strings to numbers if numbers are expected
 	for i, arg in ipairs(expanded) do
-		if types.is(args[i].expected, ValueType.number) then
+		if arg ~= DUMMY and types.is(args[i].expected, ValueType.number) then
 			expanded[i] = assert(tonumber(arg))
 		end
 		-- Perhaps strings should be casted as well?

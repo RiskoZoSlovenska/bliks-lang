@@ -256,7 +256,7 @@ return function(parsed, stdlib)
 		end
 
 		if func.compileFunc then
-			local err = func.compileFunc(program, curNum, table.unpack(assert(expandArgs(args))))
+			local err = func.compileFunc(program, curNum, table.unpack(assert(expandArgs(args, nil))))
 			if err then
 				return nil, Error(err, funcToken.pos)
 			end
