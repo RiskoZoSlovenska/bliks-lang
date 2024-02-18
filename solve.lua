@@ -263,7 +263,7 @@ return function(parsed, stdlib)
 			end
 		end
 		if func.runFunc then
-			table.insert(program.instructions, Instruction(func, args, #program.instructions + 1, funcToken.pos))
+			table.insert(program.instructions, Instruction(funcToken.value, args, #program.instructions + 1, funcToken.pos))
 		end
 	end
 

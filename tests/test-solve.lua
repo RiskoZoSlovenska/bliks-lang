@@ -22,8 +22,8 @@ local function Retr(typ, value, depth, pos)
 	return structs.Argument(AT.retrieval, typ, value, depth, pos)
 end
 
-local function Instr(func, num, pos, ...)
-	return structs.Instruction(func, { ... }, num, pos)
+local function Instr(funcName, num, pos, ...)
+	return structs.Instruction(funcName, { ... }, num, pos)
 end
 
 local function parseSolve(str)
@@ -43,8 +43,8 @@ describe("the solver", function()
 	it("should solve a valid program", function()
 		assert.are.same({
 			instructions = {
-				Instr(stdlib.set, 1, 18, Pointer(3, 22), String(5, 24)),
-				Instr(stdlib.max, 2, 34, Pointer(3, 38), Number(3, 40), Retr(VT.number, 3, 1, 42),
+				Instr("set", 1, 18, Pointer(3, 22), String(5, 24)),
+				Instr("max", 2, 34, Pointer(3, 38), Number(3, 40), Retr(VT.number, 3, 1, 42),
 				                      Retr(VT.number, 3, 1, 45), Retr(VT.number, 6, 3, 47), Number(2, 52)),
 			},
 			begin = 2,
@@ -53,8 +53,8 @@ describe("the solver", function()
 
 		assert.are.same({
 			instructions = {
-				Instr(stdlib.tonum, 1, 33, Pointer(3, 39), String("jump", 41)),
-				Instr(stdlib.jump, 2, 47, Name("jump", 52)),
+				Instr("tonum", 1, 33, Pointer(3, 39), String("jump", 41)),
+				Instr("jump", 2, 47, Name("jump", 52)),
 			},
 			begin = 1,
 			std_labels = { jump = { 3 } },
@@ -62,7 +62,7 @@ describe("the solver", function()
 
 		assert.are.same({
 			instructions = {
-				Instr(stdlib.add, 1, 1, Retr(VT.pointer, 1, 2, 5), Retr(VT.number, 1, 3, 9), Retr(VT.number, 1, 3, 11)),
+				Instr("add", 1, 1, Retr(VT.pointer, 1, 2, 5), Retr(VT.number, 1, 3, 9), Retr(VT.number, 1, 3, 11)),
 			},
 			begin = 1,
 		}, parseSolve('add @@1 < <'))

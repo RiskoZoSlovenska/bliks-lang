@@ -7,10 +7,11 @@ local Error = structs.Error
 local Machine = {}
 Machine.__index = Machine
 
-function Machine.new(compiled, numRegisters)
+function Machine.fromCompiled(compiled, lib, numRegisters)
 	local self = setmetatable({}, Machine)
 
 	self._compiled = compiled
+	self._lib = lib
 	self._registers = {}
 	self._numRegisters = numRegisters
 
@@ -49,7 +50,8 @@ function Machine:step()
 	end
 
 	-- Run function
-	local runErr = instruction.func.runFunc(self._interface, self._compiled, table.unpack(args))
+	local func = assert(self._lib[instruction.funcName], "function not found in library")
+	local runErr = func.runFunc(self._interface, self._compiled, table.unpack(args))
 	if runErr then
 		return false, nil, Error(runErr, instruction.pos)
 	end

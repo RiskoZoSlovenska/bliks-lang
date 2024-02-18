@@ -44,15 +44,14 @@ local function Argument(type, expected, value, depth, pos)
 end
 
 --[[= struct Instruction
-	- Function func
-	- {Parameter} args
-	- {string:any} data Arbitrary data stored for this instruction.
+	- Function funcName
+	- {Argument} args
 	- integer num The index of this instruction.
-	- integer pos Starting position of the function token in the source.
+	- integer pos The starting position of the function token in the source.
 ]]
-local function Instruction(func, args, num, pos)
+local function Instruction(funcName, args, num, pos)
 	return {
-		func = func,
+		funcName = funcName,
 		args = args,
 		num = assert(num),
 		pos = assert(pos),
