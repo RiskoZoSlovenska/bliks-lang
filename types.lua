@@ -62,7 +62,6 @@ end
 -- TODO: Docs
 local function parseParams(paramsStr)
 	local params = {
-		static = {},
 		min = nil,
 		max = nil,
 	}
@@ -74,7 +73,7 @@ local function parseParams(paramsStr)
 			error("vararg parameter must be the last one", 2)
 		end
 
-		local static, typeStr, mod = paramStr:match("^(!?)(%a)([%?%*]?)$")
+		local fixed, typeStr, mod = paramStr:match("^(!?)(%a)([%?%*]?)$")
 		if not typeStr then
 			error("malformed parameter '" .. paramStr .. "'", 2)
 		end
@@ -92,10 +91,10 @@ local function parseParams(paramsStr)
 			hasVararg = true
 		end
 
-		table.insert(params, typ)
-		if static == "!" then
-			params.static[#params] = true
-		end
+		table.insert(params, {
+			type = typ,
+			fixed = (fixed == "!"),
+		})
 	end
 
 	params.min = #params - numOptional - (hasVararg and 1 or 0)

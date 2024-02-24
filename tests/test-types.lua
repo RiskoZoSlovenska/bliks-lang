@@ -6,18 +6,21 @@ local Token = structs.Token
 local TokenType = enums.TokenType
 local T = enums.ValueType
 
-local function Params(min, max, static, ...)
-	local staticSet = {}
-	for _, pos in ipairs(static or {}) do
-		staticSet[pos] = true
-	end
-
-	return {
-		static = staticSet,
+local function Params(min, max, fixed, ...)
+	local res = {
 		min = min,
 		max = max,
-		...
 	}
+
+	for i = 1, select("#", ...) do
+		res[i] = { type = select(i, ...), fixed = false }
+	end
+
+	for _, i in ipairs(fixed or {}) do
+		res[i].fixed = true
+	end
+
+	return res
 end
 
 ---@diagnostic disable: undefined-global
@@ -42,7 +45,7 @@ describe("the types module", function()
 		assert.are.same(Params(2, math.huge, {}, T.pointer, T.number, T.string), types.parseParams("p n s*"))
 	end)
 
-	it("should parse params strings static params", function()
+	it("should parse params strings fixed params", function()
 		assert.are.same(Params(1, 2, { 2 }, T.string, T.string), types.parseParams("s !s?"))
 	end)
 

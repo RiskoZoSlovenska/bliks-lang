@@ -66,7 +66,7 @@ local function tokensOfType(tokens, typ)
 	end
 end
 
-local function getParamTypeAtIndex(params, index)
+local function getParamAtIndex(params, index)
 	return params[math.min(index, #params)]
 end
 
@@ -123,9 +123,9 @@ end
 local function expandMacros(tokens, func, acc)
 	-- Surface-level names
 	for i, token in tokensOfType(tokens, TokenType.name) do
-		local paramType = getParamTypeAtIndex(func.params, i)
+		local param = getParamAtIndex(func.params, i)
 
-		if paramType ~= ValueType.name then -- Don't expand non-macro names
+		if param.type ~= ValueType.name then -- Don't expand non-macro names
 			local newToken, err = expandMacro(token, acc)
 			if not newToken then
 				return err
@@ -160,8 +160,8 @@ local function typecheckRetrievals(tokens, func)
 			)
 		end
 
-		local paramType = getParamTypeAtIndex(func.params, i)
-		if paramType == ValueType.name then
+		local param = getParamAtIndex(func.params, i)
+		if param.type == ValueType.name then
 			return Error("function expects a %s for argument %d, but got a retrieval", token.pos, ValueType.name, i)
 		end
 	end
@@ -171,13 +171,13 @@ end
 
 local function typecheckLiterals(tokens, func)
 	for i, token in tokensOfType(tokens, TokenType.literal) do
-		local paramType = getParamTypeAtIndex(func.params, i)
+		local param = getParamAtIndex(func.params, i)
 
 		local actualType = types.typeoftoken(token)
-		if not types.is(actualType, paramType) then
+		if not types.is(actualType, param.type) then
 			return Error(
 				"function expects a %s for argument %d, but got '%s' (a %s)",
-				token.pos, paramType, i, utils.truncate(token.value), actualType
+				token.pos, param.type, i, utils.truncate(token.value), actualType
 			)
 		end
 	end
@@ -189,14 +189,14 @@ local function convertArguments(tokens, func)
 	local args = {}
 
 	for i, token in ipairs(tokens) do
-		local paramType = getParamTypeAtIndex(func.params, i)
+		local param = getParamAtIndex(func.params, i)
 
 		if token.type ~= TokenType.retrieval then
-			args[i] = Argument(ArgumentType.value, paramType, token.value, nil, token.pos)
-		elseif func.params.static[i] then
+			args[i] = Argument(ArgumentType.value, param.type, token.value, nil, token.pos)
+		elseif param.fixed then
 			return nil, Error("argument %d cannot be a retrieval", token.pos, i)
 		else
-			args[i] = Argument(ArgumentType.retrieval, paramType, token.value.value, token.depth, token.pos)
+			args[i] = Argument(ArgumentType.retrieval, param.type, token.value.value, token.depth, token.pos)
 		end
 	end
 
