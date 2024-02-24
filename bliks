@@ -14,7 +14,7 @@ local function runWithInput(machine, source, sourcename)
 			writeError(runErr, source, sourcename)
 			break
 		elseif data == -1 then
-			machine:push(io.read("*l"))
+			machine:push(io.read("*l") or "")
 		elseif data then
 			io.write(tostring(data) .. "\n")
 		end
@@ -32,6 +32,11 @@ local function repl()
 		io.write("> ")
 
 		local line = io.read("*l")
+		if not line then
+			io.write("\nGoodbye!\n")
+			os.exit()
+		end
+
 		local machine, machineErr = bliks.machineFromSource(line)
 		if not machine then
 			writeError(machineErr, line, "REPL")
