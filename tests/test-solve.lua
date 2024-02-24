@@ -124,6 +124,11 @@ describe("the solver", function()
 		assert.are.same({nil, Error("the first argument cannot be a back retrieval", 5)}, {parseSolve('add < 2 3')})
 	end)
 
+	it("should disallow back retrievals in retrievals", function()
+		assert.are.same({nil, Error("a retrieval cannot contain a back retrieval", 7)}, {parseSolve('add 1 @< 1')})
+		assert.are.same({nil, Error("a retrieval cannot contain a back retrieval", 7)}, {parseSolve('add 1 @@< 1')})
+	end)
+
 	it("should fail when given an undefined macro", function()
 		assert.are.same({nil, Error("macro 'hi' is not defined", 15)}, {parseSolve('> hi; tonum 1 hi')})
 	end)

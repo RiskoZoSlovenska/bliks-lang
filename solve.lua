@@ -97,6 +97,7 @@ local function expandBackRetrievals(tokens)
 	end
 	local firstIsRetrieval = (firstToken.type == TokenType.retrieval)
 
+	-- Expand surface-level retrievals
 	for i, token in tokensOfType(tokens, TokenType.backRetrieval) do
 		local baseToken = firstIsRetrieval and firstToken.value or firstToken
 
@@ -106,6 +107,13 @@ local function expandBackRetrievals(tokens)
 			(firstToken.depth or 0) + 1,
 			token.pos
 		)
+	end
+
+	-- Check that retrievals don't contain back retrievals
+	for i, token in tokensOfType(tokens, TokenType.retrieval) do
+		if token.value.type == TokenType.backRetrieval then
+			return Error("a retrieval cannot contain a back retrieval", token.pos)
+		end
 	end
 
 	return nil
