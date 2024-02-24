@@ -158,7 +158,7 @@ local function expandMacros(tokens, func, acc)
 	return nil
 end
 
-local function typecheckRetrievals(tokens, func)
+local function typecheckRetrievals(tokens)
 	for i, token in tokensOfType(tokens, TokenType.retrieval) do
 		local actualType = types.typeoftoken(token.value)
 		if not types.is(actualType, ValueType.pointer) then
@@ -166,11 +166,6 @@ local function typecheckRetrievals(tokens, func)
 				"retrieval (for argument %d) expects a %s, but got '%s' (a %s)",
 				token.value.pos, i, ValueType.pointer, utils.truncate(token.value.value), actualType
 			)
-		end
-
-		local param = getParamAtIndex(func.params, i)
-		if param.type == ValueType.name then
-			return Error("function expects a %s for argument %d, but got a retrieval", token.pos, ValueType.name, i)
 		end
 	end
 
@@ -187,6 +182,14 @@ local function typecheckLiterals(tokens, func)
 				"function expects a %s for argument %d, but got '%s' (a %s)",
 				token.pos, param.type, i, utils.truncate(token.value), actualType
 			)
+		end
+	end
+
+	-- Retrievals (we at least know they can never produce names)
+	for i, token in tokensOfType(tokens, TokenType.retrieval) do
+		local param = getParamAtIndex(func.params, i)
+		if param.type == ValueType.name then
+			return Error("function expects a %s for argument %d, but got a retrieval", token.pos, ValueType.name, i)
 		end
 	end
 
@@ -248,7 +251,7 @@ return function(parsed, stdlib)
 			return nil, macroErr
 		end
 
-		local retrievalsErr = typecheckRetrievals(tokens, func)
+		local retrievalsErr = typecheckRetrievals(tokens)
 		if retrievalsErr then
 			return nil, retrievalsErr
 		end
