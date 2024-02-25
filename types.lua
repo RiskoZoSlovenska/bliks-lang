@@ -83,12 +83,12 @@ local function parseParams(paramsStr)
 			error("unknown type '" .. typeStr .. "'", 2)
 		end
 
-		if mod == "?" then
+		if mod == "*" then
+			hasVararg = true
+		elseif mod == "?" then
 			numOptional = numOptional + 1
 		elseif numOptional > 0 then
 			error("optional parameters must be the at end", 2)
-		elseif mod == "*" then
-			hasVararg = true
 		end
 
 		table.insert(params, {

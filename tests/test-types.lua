@@ -45,6 +45,10 @@ describe("the types module", function()
 		assert.are.same(Params(2, math.huge, {}, T.pointer, T.number, T.string), types.parseParams("p n s*"))
 	end)
 
+	it("should parse param string with both optional params and a vararg param", function()
+		assert.are.same(Params(1, math.huge, {}, T.string, T.number, T.pointer), types.parseParams("s n? p*"))
+	end)
+
 	it("should parse params strings fixed params", function()
 		assert.are.same(Params(1, 2, { 2 }, T.string, T.string), types.parseParams("s !s?"))
 	end)
@@ -65,7 +69,6 @@ describe("the types module", function()
 	it("should disallow optional params in the middle", function()
 		assert.has.error(function() types.parseParams("s s? s") end, "optional parameters must be the at end")
 		assert.has.error(function() types.parseParams("s? s") end, "optional parameters must be the at end")
-		assert.has.error(function() types.parseParams("s? s*") end, "optional parameters must be the at end")
 	end)
 
 	it("should disallow non-trailing or duplicate varargs", function()
