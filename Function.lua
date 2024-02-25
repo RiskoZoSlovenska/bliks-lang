@@ -1,7 +1,6 @@
 local types = require("types")
 
 
-
 local function new(params, compileFunc, runFunc)
 	return {
 		params = types.parseParams(params),

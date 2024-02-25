@@ -1,8 +1,9 @@
---[[= [standalone] fn parse
-	Takes a source string and parses it into a list of instructions.
+--[[= [internal standalone] fn parse
+	This module returns a single function that takes a source string and parses
+	out the instructions, returning each as a list of Tokens.
 
 	@param string source
-	@return {{Token}}? The parsed instructions, if successful.
+	@return {{Token}}?
 	@return Error? A parsing error, if any.
 ]]
 
@@ -47,6 +48,7 @@ local function RawToken(value, pos)
 end
 
 
+-- Parse into the strings that make up each instruction token
 local function tokenize(source)
 	local instructions = {}
 	local curInstruction = {}
@@ -138,7 +140,8 @@ local function tokenize(source)
 	return instructions, nil
 end
 
-local function parseToken(token)
+-- Interpret the string body of a token and turn it into a Token object
+local function interpretRawToken(token)
 	assert(#token.value > 0)
 
 	local firstChar = token.value:sub(1, 1)
@@ -151,7 +154,7 @@ local function parseToken(token)
 		end
 
 		local subRawToken = RawToken(remainder, token.pos + #depth)
-		local subToken, err = parseToken(subRawToken)
+		local subToken, err = interpretRawToken(subRawToken)
 		if not subToken then
 			return nil, err
 		end
@@ -211,26 +214,23 @@ end
 
 
 return function(source)
-	local rawInstructions, tokenizeErr = tokenize(source)
-	if not rawInstructions then
+	-- Parse into strings
+	local instructions, tokenizeErr = tokenize(source)
+	if not instructions then
 		return nil, tokenizeErr
 	end
 
-	local instructions = {}
-	for _, rawInstruction in ipairs(rawInstructions) do
-		local instruction = {}
-
-		for _, rawToken in ipairs(rawInstruction) do
-			local token, tokenErr = parseToken(rawToken)
+	-- Interpret into Tokens
+	for _, instruction in ipairs(instructions) do
+		for i, rawToken in ipairs(instruction) do
+			local token, tokenErr = interpretRawToken(rawToken)
 			if not token then
 				return nil, tokenErr
 			end
 
-			table.insert(instruction, token)
+			instruction[i] = token
 		end
-
-		table.insert(instructions, instruction)
 	end
 
-	return instructions
+	return instructions, nil
 end

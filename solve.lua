@@ -1,20 +1,39 @@
---[[= [standalone] fn solve
-	Takes parsed instructions and a set of Functions, and validifies and
-	resolves the parsed instructions into executable ones. This involves
-	verifying known types, running compile-time functions and expanding macros,
-	amongst other things.
+--[[= [standalone internal] fn solve
+	Takes a list of instructions as returned by >parse and the set of available
+	functions and performs the following:
+	* Ensures that each instruction starts with a valid function name
+	* Runs compile-time functions
+	* Expands macros
+	* Ensures that retrievals only occur at parameters where they're allowed
+	* Ensures that retrievals are being passed pointer values
+	* Typechecks non-retrieval values against the expected parameter type
+
+	Functions with a compile-time component have that component called with an
+	in-progress >CompiledProgram table plus any arguments. Only fixed arguments
+	are guaranteed to have a meaningful value; non-fixed arguments should be
+	treated as being indeterminate or random.
+
+	The passed CompiledProgram table will contain the run-time components of the
+	functions that have been processed so far, as well as an additional two
+	fields:
+	* curInstruction: An integer pointing to the positional index of the next
+	  unprocessed function. If the currently-ran function has a run-time
+	  component, the run-time component will have a position equal to this
+	  value.
+	* macros: A table with string keys and string/number values, representing
+	  the currently-defined macros; expanded macros are taken from this list.
+
+	Functions are free to add their own fields to this CompiledProgram; these
+	fields will be retained in the output structure and thus available to the
+	run-time components. The string keys of any added fields should contain an
+	underscore to avoid conflicts with any other undocumented fields; the
+	default stdlib does this by prefixing all fields with `std_`.
 
 	@param {{Token}} parsed
-	@param {string:Function} funcs
+	@param {string:Function} lib The library of functions 
 
-	@return CompiledProgram
-]]
-
---[[= struct CompiledProgram
-	- {Instruction} instructions
-	- integer begin
-
-	@compound string any
+	@return CompiledProgram? Only nil if an error occurred.
+	@return string? An error message, if an error occurred.
 ]]
 
 local types = require("types")
@@ -32,7 +51,7 @@ local Token = structs.Token
 local Argument = structs.Argument
 local Instruction = structs.Instruction
 
-local DEFAULT_MACROS = {
+local DEFAULT_MACROS = { -- TODO: Make this configurable somehow
 	pi = math.pi,
 	e = math.exp(1),
 	inf = math.huge,
@@ -85,8 +104,9 @@ end
 
 --[[
 	Performs an in-place replacement of all back retrieval tokens with normal
-	retrieval tokens. Modifies the `tokens` table, but leaves all sub-tables
-	unmodified. Returns nil on success, or an error on error.
+	retrieval tokens. Guarantees that after this function returns, the `tokens`
+	table will not contain any back retrieval tokens. Returns nil on success, or
+	an Error otherwise.
 ]]
 local function expandBackRetrievals(tokens)
 	local firstToken = tokens[1]
@@ -128,6 +148,11 @@ local function expandMacro(token, acc)
 	return Token(TokenType.literal, value, nil, token.pos), nil
 end
 
+--[[
+	Performs an in-place replacement/macro expansion of all name tokens,
+	excluding those that are being passed to parameters that expect a name.
+	Returns nil on success, or an Error otherwise.
+]]
 local function expandMacros(tokens, func, acc)
 	-- Surface-level names
 	for i, token in tokensOfType(tokens, TokenType.name) do
@@ -158,6 +183,10 @@ local function expandMacros(tokens, func, acc)
 	return nil
 end
 
+--[[
+	Verifies that each retrieval is being passed a pointer value. Never modifies
+	the input in any way. Returns nil on success, or an Error otherwise.
+]]
 local function typecheckRetrievals(tokens)
 	for i, token in tokensOfType(tokens, TokenType.retrieval) do
 		local actualType = types.typeoftoken(token.value)
@@ -172,7 +201,13 @@ local function typecheckRetrievals(tokens)
 	return nil
 end
 
-local function typecheckLiterals(tokens, func)
+--[[
+	Verifies that each literal and retrieval token is being passed to an
+	argument that can accept it. Does not modify the input in any way. Returns
+	nil on success, or an Error otherwise.
+]]
+local function typecheckKnownValues(tokens, func)
+	-- Known values
 	for i, token in tokensOfType(tokens, TokenType.literal) do
 		local param = getParamAtIndex(func.params, i)
 
@@ -187,8 +222,7 @@ local function typecheckLiterals(tokens, func)
 
 	-- Retrievals (we at least know they can never produce names)
 	for i, token in tokensOfType(tokens, TokenType.retrieval) do
-		local param = getParamAtIndex(func.params, i)
-		if param.type == ValueType.name then
+		if types.is(ValueType.name, getParamAtIndex(func.params, i).type) then
 			return Error("function expects a %s for argument %d, but got a retrieval", token.pos, ValueType.name, i)
 		end
 	end
@@ -196,6 +230,10 @@ local function typecheckLiterals(tokens, func)
 	return nil
 end
 
+--[[
+	Takes a list of tokens and converts it (NOT in-place) into a list of
+	Arguments. Returns a table, nil on success, or nil, Error otherwise.
+]]
 local function convertArguments(tokens, func)
 	local args = {}
 
@@ -215,7 +253,7 @@ local function convertArguments(tokens, func)
 end
 
 
-return function(parsed, stdlib)
+return function(parsed, lib)
 	local program = {
 		instructions = {},
 		macros = copy(DEFAULT_MACROS), -- Temporary, will be removed at the end
@@ -227,11 +265,11 @@ return function(parsed, stdlib)
 		-- Get function token
 		local funcToken = assert(table.remove(tokens, 1))
 		if funcToken.type ~= TokenType.name then
-			return nil, Error("expected instruction name, got a %s", funcToken.pos, funcToken.type)
+			return nil, Error("expected function name, got a %s", funcToken.pos, funcToken.type)
 		end
 
 		-- Get function
-		local func = stdlib[funcToken.value]
+		local func = lib[funcToken.value]
 		if not func then
 			return nil, Error("no such function '%s'", funcToken.pos, funcToken.value)
 		end
@@ -256,7 +294,7 @@ return function(parsed, stdlib)
 			return nil, retrievalsErr
 		end
 
-		local literalsErr = typecheckLiterals(tokens, func)
+		local literalsErr = typecheckKnownValues(tokens, func)
 		if literalsErr then
 			return nil, literalsErr
 		end

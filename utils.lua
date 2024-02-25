@@ -3,11 +3,13 @@ local TRAILING_CONTEXT = 15
 local TRUNCATE_STR = "..."
 local TRUNCATE_STR_WIDTH = 3
 
-local function pp(a, b) -- Only for debugging
+-- Pretty-print via the inspect library. Only for debugging.
+local function pp(a, b)
 	local inspect = require("inspect")
 	print(inspect(a), b and inspect(b) or "")
 end
 
+-- Takes a string, and truncates it around a given index.
 local function truncate(str, start)
 	str = tostring(str)
 	start = start or 1
@@ -28,6 +30,8 @@ local function truncate(str, start)
 	return cleaned, pos
 end
 
+-- Given an Error object, a source string and a source name, returns a
+-- neatly-formatted error message.
 local function formatError(err, source, sourcename)
 	local lineNum = 1
 	local line, colNum
@@ -43,7 +47,7 @@ local function formatError(err, source, sourcename)
 	end
 
 	local truncated, arrowPos = truncate(assert(line), colNum)
-	local arrow = truncated:sub(1, arrowPos - 1):gsub("%S", " ") .. "^"
+	local arrow = truncated:sub(1, arrowPos - 1):gsub("%S", " ") .. "^" -- Preserves tabs
 
 	return string.format(
 		"bliks: error: %s:%d: %s\n\t%s\n\t%s",

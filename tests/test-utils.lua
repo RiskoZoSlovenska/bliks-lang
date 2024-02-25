@@ -28,5 +28,9 @@ describe("the utilities", function()
 			"bliks: error: S:2: oh no\n\thi\n\t^",
 			utils.formatError(Error("oh no", 5), "\n\t  hi\t\n\n", "S")
 		)
+		assert.are.same( -- Check preserves tabs
+			"bliks: error: S:1: oh no\n\ta\thi\n\t \t^",
+			utils.formatError(Error("oh no", 3), "a\thi", "S")
+		)
 	end)
 end)
